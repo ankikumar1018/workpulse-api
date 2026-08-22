@@ -23,6 +23,7 @@ FastAPI backend for workforce communication automation.
 - [Setup Guide](#setup-guide)
 - [Developer Workflow](#developer-workflow)
 - [Contribution Guide](#contribution-guide)
+- [Documentation](#documentation)
 - [Notes](#notes)
 - [License](#license)
 
@@ -195,6 +196,11 @@ uv run pytest
 - Add or update tests for behavior changes
 - Include migration notes for schema changes
 - Use clear commit messages and PR descriptions
+
+## Documentation
+
+- [Development Setup Guide](docs/DEVELOPMENT.md)
+- [Initial Setup Summary](docs/SETUP_COMPLETE.md)
 
 ## Notes
 

@@ -64,8 +64,8 @@ This document confirms the initial Python and dependency setup for the WorkPulse
 | File | Purpose |
 |------|---------|
 | `README.md` | Project overview and quick start |
-| `DEVELOPMENT.md` | Detailed development setup guide |
-| `SETUP_COMPLETE.md` | This file - setup confirmation |
+| `docs/DEVELOPMENT.md` | Detailed development setup guide |
+| `docs/SETUP_COMPLETE.md` | This file - setup confirmation |
 
 ## 🚀 Next Steps
 

@@ -1,0 +1,42 @@
+# VCS
+.git
+.gitignore
+
+# Python cache and virtual envs
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Test and lint artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local tooling and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build outputs and docs not needed in image context
+build/
+dist/
+*.egg-info/
+site/
+
+# OS files
+.DS_Store
+Thumbs.db

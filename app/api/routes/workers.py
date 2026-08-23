@@ -28,6 +28,8 @@ def to_worker_response(worker: Worker) -> WorkerResponse:
         department_id=worker.department_id,
         full_name=worker.full_name,
         phone_number=worker.phone_number,
+        contact_channel=worker.contact_channel.value,
+        consent_status=worker.consent_status.value,
         status=worker.status.value,
         created_at=worker.created_at,
         updated_at=worker.updated_at,
@@ -53,6 +55,8 @@ async def create_worker(
         actor_user_id=current_user.user_id,
         full_name=request.full_name,
         phone_number=request.phone_number,
+        contact_channel=request.contact_channel,
+        consent_status=request.consent_status,
     )
     return make_success_response(to_worker_response(worker))
 

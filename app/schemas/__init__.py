@@ -9,6 +9,7 @@ from app.schemas.common import (
     ValidationErrorDetail,
 )
 from app.schemas.requests import (
+    ContactChannel,
     DepartmentCreateRequest,
     DepartmentStatus,
     DepartmentUpdateRequest,
@@ -22,6 +23,7 @@ from app.schemas.requests import (
     UserRole,
     UserStatus,
     UserUpdateRequest,
+    WorkerConsentStatus,
     WorkerCreateRequest,
     WorkerStatus,
     WorkerUpdateRequest,
@@ -37,6 +39,7 @@ from app.schemas.responses import (
 
 __all__ = [
     "APIError",
+    "ContactChannel",
     "DepartmentCreateRequest",
     "DepartmentResponse",
     "DepartmentStatus",
@@ -60,6 +63,7 @@ __all__ = [
     "UserStatus",
     "UserUpdateRequest",
     "ValidationErrorDetail",
+    "WorkerConsentStatus",
     "WorkerCreateRequest",
     "WorkerResponse",
     "WorkerStatus",

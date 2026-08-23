@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from app.api.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.domain.enums import AuditAction, EntityStatus, WorkerStatus
+from app.domain.enums import AuditAction, ConsentStatus, EntityStatus, WorkerStatus
 from app.infrastructure.db.models import Department, Project, Worker
 from app.repositories.audit import AuditRepository
 from app.repositories.department import DepartmentRepository
@@ -45,6 +45,8 @@ class DepartmentController:
             )
         if worker.status == WorkerStatus.INACTIVE:
             raise UnprocessableEntityError("Inactive workers cannot be primary contacts")
+        if worker.consent_status == ConsentStatus.OPTED_OUT:
+            raise UnprocessableEntityError("Opted-out workers cannot be primary contacts")
         return worker
 
     async def create_department(

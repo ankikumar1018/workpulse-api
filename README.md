@@ -73,6 +73,10 @@ for creation and listing, and `/api/v1/workers/{worker_id}` for retrieval,
 updates, and deactivation. Worker operations validate department and project
 ownership, require E.164 phone numbers, enforce organization-wide phone
 uniqueness, and reject new workers under archived projects or departments.
+Worker payloads normalize phone input to E.164, persist an explicit contact
+channel (`whatsapp` in MVP), and enforce consent status (`opted_in` or
+`opted_out`). Inactive or opted-out workers are blocked from communication
+recipient workflows.
 
 Department worker assignment lifecycle management is available through
 `POST /api/v1/departments/{department_id}/workers/{worker_id}/assignment` and

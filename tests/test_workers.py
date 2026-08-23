@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from app.api.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.controllers.worker import WorkerController
-from app.domain.enums import EntityStatus
+from app.domain.enums import ConsentStatus, EntityStatus
 from app.infrastructure.db.models import Department, Project, Worker
 from app.schemas.requests.worker import WorkerCreateRequest
 
@@ -114,10 +114,14 @@ async def test_worker_creation_is_scoped_and_audited():
         actor_user_id=uuid4(),
         full_name="Asha Designer",
         phone_number="+14155552671",
+        contact_channel="whatsapp",
+        consent_status="opted_in",
     )
 
     assert worker.organization_id == organization_id
     assert worker.department_id == department.id
+    assert worker.contact_channel.value == "whatsapp"
+    assert worker.consent_status.value == "opted_in"
     assert audit_repository.events[0]["resource_type"] == "worker"
 
 
@@ -134,6 +138,8 @@ async def test_worker_creation_rejects_cross_tenant_department():
             actor_user_id=uuid4(),
             full_name="Asha Designer",
             phone_number="+14155552671",
+            contact_channel="whatsapp",
+            consent_status="opted_in",
         )
 
     assert exception_info.value.message == f"Department '{department.id}' not found"
@@ -161,6 +167,8 @@ async def test_worker_phone_is_unique_within_organization():
             actor_user_id=uuid4(),
             full_name="Asha Designer",
             phone_number="+14155552671",
+            contact_channel="whatsapp",
+            consent_status="opted_in",
         )
 
     assert exception_info.value.message == "A worker with this phone number already exists"
@@ -184,6 +192,8 @@ async def test_archived_department_rejects_new_workers():
             actor_user_id=uuid4(),
             full_name="Asha Designer",
             phone_number="+14155552671",
+            contact_channel="whatsapp",
+            consent_status="opted_in",
         )
 
     assert exception_info.value.message == "Archived departments cannot contain workers"
@@ -258,7 +268,41 @@ async def test_inactive_worker_cannot_be_assigned():
             actor_user_id=uuid4(),
         )
 
-    assert exception_info.value.message == "Inactive workers cannot be assigned"
+    assert exception_info.value.message == "Inactive workers cannot be communication recipients"
+
+
+@pytest.mark.asyncio
+async def test_opted_out_worker_cannot_be_assigned():
+    organization_id = uuid4()
+    project = make_project(organization_id=organization_id)
+    source_department = make_department(organization_id=organization_id, project_id=project.id)
+    target_department = make_department(
+        organization_id=organization_id,
+        project_id=project.id,
+        name="Living Room",
+    )
+    worker = Worker(
+        id=uuid4(),
+        organization_id=organization_id,
+        department_id=source_department.id,
+        full_name="Asha Designer",
+        phone_number="+14155552671",
+        consent_status=ConsentStatus.OPTED_OUT,
+        status="active",
+    )
+    controller = WorkerController(
+        FakeWorkerRepository([project], [source_department, target_department], [worker])
+    )
+
+    with pytest.raises(UnprocessableEntityError) as exception_info:
+        await controller.assign_worker_to_department(
+            worker_id=worker.id,
+            department_id=target_department.id,
+            organization_id=organization_id,
+            actor_user_id=uuid4(),
+        )
+
+    assert exception_info.value.message == "Opted-out workers cannot be communication recipients"
 
 
 @pytest.mark.asyncio
@@ -326,4 +370,13 @@ async def test_worker_assignment_removal_rejects_mismatched_department():
 
 def test_worker_request_validates_e164_phone_number():
     with pytest.raises(ValidationError):
-        WorkerCreateRequest(full_name="Asha Designer", phone_number="415-555-2671")
+        WorkerCreateRequest(full_name="Asha Designer", phone_number="invalid-number")
+
+
+def test_worker_request_normalizes_phone_number():
+    request = WorkerCreateRequest(
+        full_name="Asha Designer",
+        phone_number="+1 (415) 555-2671",
+    )
+
+    assert request.phone_number == "+14155552671"

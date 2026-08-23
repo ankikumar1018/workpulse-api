@@ -17,9 +17,16 @@ from app.schemas.requests.organization import (
     OrganizationUpdateRequest,
 )
 from app.schemas.requests.project import ProjectCreateRequest, ProjectStatus, ProjectUpdateRequest
-from app.schemas.requests.worker import WorkerCreateRequest, WorkerStatus, WorkerUpdateRequest
+from app.schemas.requests.worker import (
+    ContactChannel,
+    WorkerConsentStatus,
+    WorkerCreateRequest,
+    WorkerStatus,
+    WorkerUpdateRequest,
+)
 
 __all__ = [
+    "ContactChannel",
     "DepartmentCreateRequest",
     "DepartmentStatus",
     "DepartmentUpdateRequest",
@@ -33,6 +40,7 @@ __all__ = [
     "UserRole",
     "UserStatus",
     "UserUpdateRequest",
+    "WorkerConsentStatus",
     "WorkerCreateRequest",
     "WorkerStatus",
     "WorkerUpdateRequest",

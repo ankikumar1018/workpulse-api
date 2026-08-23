@@ -18,6 +18,8 @@ class WorkerResponse(BaseModel):
     department_id: UUID
     full_name: str
     phone_number: str
+    contact_channel: str
+    consent_status: str
     status: str
     created_at: datetime
     updated_at: datetime

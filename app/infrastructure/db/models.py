@@ -27,6 +27,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.domain.enums import (
     AuditAction,
     Channel,
+    ConsentStatus,
     DeliveryStatus,
     EntityStatus,
     OrganizationStatus,
@@ -204,6 +205,18 @@ class Worker(TimestampMixin, Base):
     )
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    contact_channel: Mapped[Channel] = mapped_column(
+        Enum(Channel, name="channel_type", values_callable=enum_values),
+        nullable=False,
+        default=Channel.WHATSAPP,
+        server_default=Channel.WHATSAPP.value,
+    )
+    consent_status: Mapped[ConsentStatus] = mapped_column(
+        Enum(ConsentStatus, name="consent_status", values_callable=enum_values),
+        nullable=False,
+        default=ConsentStatus.OPTED_IN,
+        server_default=ConsentStatus.OPTED_IN.value,
+    )
     status: Mapped[WorkerStatus] = mapped_column(
         Enum(WorkerStatus, name="worker_status", values_callable=enum_values),
         nullable=False,

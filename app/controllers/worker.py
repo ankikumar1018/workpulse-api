@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from app.api.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.domain.enums import AuditAction, EntityStatus, WorkerStatus
+from app.domain.enums import AuditAction, Channel, ConsentStatus, EntityStatus, WorkerStatus
 from app.infrastructure.db.models import Department, Project, Worker
 from app.repositories.audit import AuditRepository
 from app.repositories.worker import WorkerRepository
@@ -36,6 +36,12 @@ class WorkerController:
             raise UnprocessableEntityError("Archived departments cannot contain workers")
         return department
 
+    def _ensure_contact_eligible(self, worker: Worker) -> None:
+        if worker.status == WorkerStatus.INACTIVE:
+            raise UnprocessableEntityError("Inactive workers cannot be communication recipients")
+        if worker.consent_status == ConsentStatus.OPTED_OUT:
+            raise UnprocessableEntityError("Opted-out workers cannot be communication recipients")
+
     async def create_worker(
         self,
         *,
@@ -44,6 +50,8 @@ class WorkerController:
         actor_user_id: UUID,
         full_name: str,
         phone_number: str,
+        contact_channel: str,
+        consent_status: str,
     ) -> Worker:
         department = await self._get_department(
             department_id=department_id,
@@ -60,6 +68,8 @@ class WorkerController:
                 "department_id": department.id,
                 "full_name": full_name,
                 "phone_number": phone_number,
+                "contact_channel": Channel(contact_channel),
+                "consent_status": ConsentStatus(consent_status),
             }
         )
         await self._audit(
@@ -67,7 +77,11 @@ class WorkerController:
             actor_user_id=actor_user_id,
             action=AuditAction.CREATE,
             worker=worker,
-            metadata={"full_name": worker.full_name, "phone_number": worker.phone_number},
+            metadata={
+                "full_name": worker.full_name,
+                "phone_number": worker.phone_number,
+                "consent_status": worker.consent_status.value,
+            },
         )
         return worker
 
@@ -107,14 +121,34 @@ class WorkerController:
         update_data: dict[str, Any],
     ) -> Worker:
         worker = await self.get_worker(worker_id=worker_id, organization_id=organization_id)
-        await self._get_department(
-            department_id=worker.department_id, organization_id=organization_id
+        current_department = await self._get_department(
+            department_id=worker.department_id,
+            organization_id=organization_id,
         )
-        if "department_id" in update_data:
+
+        next_department_id = update_data.get("department_id")
+        if next_department_id is not None:
             await self._get_department(
-                department_id=update_data["department_id"],
+                department_id=next_department_id,
                 organization_id=organization_id,
             )
+
+        next_status = update_data.get("status")
+        next_consent = update_data.get("consent_status")
+        if current_department.primary_contact_worker_id == worker.id and (
+            (next_department_id is not None and next_department_id != worker.department_id)
+            or next_status == WorkerStatus.INACTIVE.value
+            or next_consent == ConsentStatus.OPTED_OUT.value
+        ):
+            raise UnprocessableEntityError(
+                "Worker must be removed as department primary contact before becoming ineligible"
+            )
+
+        if "contact_channel" in update_data and update_data["contact_channel"] is not None:
+            update_data["contact_channel"] = Channel(update_data["contact_channel"])
+        if "consent_status" in update_data and update_data["consent_status"] is not None:
+            update_data["consent_status"] = ConsentStatus(update_data["consent_status"])
+
         if (
             "phone_number" in update_data
             and update_data["phone_number"] != worker.phone_number
@@ -124,9 +158,11 @@ class WorkerController:
             )
         ):
             raise ConflictError("A worker with this phone number already exists")
+
         updated = await self.repository.update(worker_id, update_data)
         if updated is None:
             raise NotFoundError(f"Worker '{worker_id}' not found")
+
         await self._audit(
             organization_id=organization_id,
             actor_user_id=actor_user_id,
@@ -145,8 +181,15 @@ class WorkerController:
         actor_user_id: UUID,
     ) -> Worker:
         worker = await self.get_worker(worker_id=worker_id, organization_id=organization_id)
-        if worker.status == WorkerStatus.INACTIVE:
-            raise UnprocessableEntityError("Inactive workers cannot be assigned")
+        self._ensure_contact_eligible(worker)
+        current_department = await self._get_department(
+            department_id=worker.department_id,
+            organization_id=organization_id,
+        )
+        if current_department.primary_contact_worker_id == worker.id:
+            raise UnprocessableEntityError(
+                "Worker must be removed as department primary contact before reassignment"
+            )
         target_department = await self._get_department(
             department_id=department_id,
             organization_id=organization_id,

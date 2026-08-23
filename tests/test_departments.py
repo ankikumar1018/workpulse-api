@@ -4,7 +4,7 @@ import pytest
 
 from app.api.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.controllers.department import DepartmentController
-from app.domain.enums import EntityStatus, WorkerStatus
+from app.domain.enums import ConsentStatus, EntityStatus, WorkerStatus
 from app.infrastructure.db.models import Department, Project, Worker
 
 
@@ -106,6 +106,7 @@ def make_worker(
     department_id,
     full_name="Asha",
     phone_number="+14155552671",
+    consent_status=ConsentStatus.OPTED_IN,
     status=WorkerStatus.ACTIVE,
 ):
     return Worker(
@@ -114,6 +115,7 @@ def make_worker(
         department_id=department_id,
         full_name=full_name,
         phone_number=phone_number,
+        consent_status=consent_status,
         status=status,
     )
 
@@ -260,6 +262,29 @@ async def test_inactive_worker_cannot_be_primary_contact():
         )
 
     assert exception_info.value.message == "Inactive workers cannot be primary contacts"
+
+
+@pytest.mark.asyncio
+async def test_opted_out_worker_cannot_be_primary_contact():
+    organization_id = uuid4()
+    project = make_project(organization_id=organization_id)
+    department = make_department(organization_id=organization_id, project_id=project.id)
+    worker = make_worker(
+        organization_id=organization_id,
+        department_id=department.id,
+        consent_status=ConsentStatus.OPTED_OUT,
+    )
+    controller = DepartmentController(FakeDepartmentRepository([project], [department], [worker]))
+
+    with pytest.raises(UnprocessableEntityError) as exception_info:
+        await controller.update_department(
+            department_id=department.id,
+            organization_id=organization_id,
+            actor_user_id=uuid4(),
+            update_data={"primary_contact_worker_id": worker.id},
+        )
+
+    assert exception_info.value.message == "Opted-out workers cannot be primary contacts"
 
 
 @pytest.mark.asyncio

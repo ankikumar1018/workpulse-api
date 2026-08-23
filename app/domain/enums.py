@@ -39,6 +39,13 @@ class WorkerStatus(enum.StrEnum):
     INACTIVE = "inactive"
 
 
+class ConsentStatus(enum.StrEnum):
+    """Worker communication consent state for outbound channels."""
+
+    OPTED_IN = "opted_in"
+    OPTED_OUT = "opted_out"
+
+
 class WorkPriority(enum.StrEnum):
     """Work item urgency level."""
 
@@ -93,6 +100,7 @@ class AuditAction(enum.StrEnum):
 __all__ = [
     "AuditAction",
     "Channel",
+    "ConsentStatus",
     "DeliveryStatus",
     "EntityStatus",
     "OrganizationStatus",

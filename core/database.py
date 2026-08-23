@@ -4,32 +4,12 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import DateTime, func
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
+from app.infrastructure.db import Base
+from app.infrastructure.db.base import TimestampMixin
 from core.config import settings
-
-
-class Base(DeclarativeBase):
-    """Base class for all SQLAlchemy models."""
-
-    pass
-
-
-class TimestampMixin:
-    """Timestamp fields shared by mutable entities."""
-
-    created_at: Mapped[__import__("datetime").datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[__import__("datetime").datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-
 
 # Create async engine
 engine = create_async_engine(

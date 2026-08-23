@@ -65,6 +65,7 @@ def create_app() -> FastAPI:
 
         return JSONResponse(
             status_code=exc.status_code,
+            headers=exc.headers,
             content=jsonable_encoder(camelize(response)),
         )
 

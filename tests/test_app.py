@@ -28,6 +28,15 @@ def test_openapi_docs(client):
     assert response.status_code == 200
 
 
+def test_openapi_declares_oauth2_bearer_security(client):
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    security_scheme = response.json()["components"]["securitySchemes"]["OAuth2PasswordBearer"]
+    assert security_scheme["type"] == "oauth2"
+    assert security_scheme["flows"]["password"]["tokenUrl"] == "/api/v1/auth/token"
+
+
 def test_app_title():
     """Test app configuration."""
     assert app.title == "WorkPulse API"

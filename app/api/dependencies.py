@@ -5,9 +5,11 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, Header
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
 
-from app.api.errors import ForbiddenError
+from app.api.errors import ForbiddenError, UnauthorizedError
+from app.api.security import decode_access_token
 
 
 class AuthContext:
@@ -34,33 +36,29 @@ class AuthContext:
             raise ForbiddenError("Organization access denied")
 
 
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/token",
+    refreshUrl="/api/v1/auth/refresh",
+    auto_error=False,
+)
+
+
 async def get_auth_context(
-    authorization: str | None = Header(None),
+    token: Annotated[str | None, Depends(oauth2_scheme)],
 ) -> AuthContext:
-    """
-    Extract and validate JWT token from Authorization header.
+    """Decode and validate the bearer token supplied by FastAPI's OAuth2 scheme."""
+    if not token:
+        raise UnauthorizedError("Missing bearer token")
 
-    TODO: Implement full JWT verification in WI-2.1.
-    For now, this is a stub that allows local development.
-    """
-    if not authorization or not authorization.startswith("Bearer "):
-        # In development, allow requests without token to test endpoints
-        # Production: raise UnauthorizedError("Missing authorization header")
-        import uuid
+    try:
+        claims = decode_access_token(token)
         return AuthContext(
-            user_id=uuid.uuid7(),
-            organization_id=uuid.uuid7(),
-            role="admin",
+            user_id=UUID(claims["user_id"]),
+            organization_id=UUID(claims["organization_id"]),
+            role=claims["role"],
         )
-
-    # TODO: Decode and validate JWT token
-    # For now, accept any bearer token
-    import uuid
-    return AuthContext(
-        user_id=uuid.uuid7(),
-        organization_id=uuid.uuid7(),
-        role="admin",
-    )
+    except ValueError as exc:
+        raise UnauthorizedError("Invalid access token") from exc
 
 
 # Type alias for dependency injection
@@ -71,4 +69,5 @@ __all__ = [
     "AuthContext",
     "CurrentUser",
     "get_auth_context",
+    "oauth2_scheme",
 ]

@@ -18,8 +18,9 @@ class APIException(HTTPException):
         error_code: str,
         message: str,
         details: list[dict[str, Any]] | None = None,
+        headers: dict[str, str] | None = None,
     ):
-        super().__init__(status_code=status_code)
+        super().__init__(status_code=status_code, headers=headers)
         self.error_code = error_code
         self.message = message
         self.details = details
@@ -45,6 +46,7 @@ class UnauthorizedError(APIException):
             status_code=status.HTTP_401_UNAUTHORIZED,
             error_code="UNAUTHORIZED",
             message=message,
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
 

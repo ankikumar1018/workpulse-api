@@ -91,33 +91,17 @@ For non-trivial backend changes, prefer this order:
 2. `uv run mypy app`
 3. `uv run pytest -Wd`
 
-## Mandatory Testing Standard
+## Engineering Rules
 
-- Use pytest only. Do not use `unittest`, `unittest.mock`, `TestCase`, or
-  unittest-style assertions and setup/teardown classes.
-- Target Python 3.14 and use the repository's configured `pytest-asyncio`
-  conventions. Use synchronous `TestClient` tests for synchronous API tests;
-  use `httpx.AsyncClient` with `ASGITransport` only when the test itself needs
-  async operations.
-- Prefer behavior-oriented test functions with Arrange, Act, Assert structure.
-  Add unit tests for pure functions and domain/application rules, integration
-  tests for database boundaries, and focused API contract tests for routes.
-- Test response structure, validation, authorization, error behavior, and
-  security-sensitive field absence where applicable, not private implementation
-  details.
-- Use fixtures for clients, sessions, fakes, controlled integrations, and
-  cleanup. Clear FastAPI dependency overrides after each test.
-- Keep reusable test data in deterministic factory functions under `tests/`;
-  pass meaningful overrides explicitly instead of hiding behavior in global
-  state or large fixtures.
-- Use pytest fixtures, `monkeypatch`, `pytest.raises`, and parametrization.
-  Never call real third-party services from tests and never store credentials.
-- Keep tests isolated, deterministic, warning-clean, and compatible with the
-  strict markers/configuration in `pyproject.toml`. Add registered markers only
-  when a test genuinely needs integration or end-to-end resources.
-- Every behavior change requires a focused regression or contract test, followed
-  by the complete pytest suite. Do not weaken warnings, strictness, or coverage
-  settings to make tests pass.
+- [Python Practices](docs/rules/python-practices.md) defines Python style,
+  typing, architecture boundaries, async code, schemas, persistence, errors,
+  security, logging, and quality practices.
+- [Testing Practices](docs/rules/testing-practices.md) defines pytest structure,
+  database isolation, fixtures, factories, mocking, assertions, and behavioral
+  validation.
+- Follow both rule documents for every implementation and test change. Keep
+  this agent guide focused on repository-specific setup, architecture, and
+  workflow.
 
 ## Known Pitfalls (Important)
 

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.auth import AuthController
 from app.controllers.organization import OrganizationController
+from app.repositories.audit import AuditRepository
 from app.repositories.auth import AuthRepository
 from app.repositories.organization import OrganizationRepository
 
@@ -27,7 +28,8 @@ class Factory:
     def get_auth_controller(session: AsyncSession) -> AuthController:
         """Get authentication controller with injected repository."""
         repository = AuthRepository(session)
-        return AuthController(repository)
+        audit_repository = AuditRepository(session)
+        return AuthController(repository, audit_repository)
 
     # TODO: Add more controller getters as they are created
     # @staticmethod

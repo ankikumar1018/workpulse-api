@@ -64,7 +64,7 @@ async def get_auth_context(
         return AuthContext(
             user_id=UUID(claims["user_id"]),
             organization_id=UUID(claims["organization_id"]),
-            role=claims["role"],
+            role=user.role,
         )
     except ValueError as exc:
         raise UnauthorizedError("Invalid access token") from exc

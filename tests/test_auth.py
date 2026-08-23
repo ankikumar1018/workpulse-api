@@ -11,6 +11,7 @@ from app.api.security import (
     verify_password,
 )
 from app.controllers.auth import AuthController
+from app.domain.enums import AuditAction
 from app.infrastructure.db.models import RefreshSession, User
 
 
@@ -74,6 +75,14 @@ class FakeDatabaseSession:
 
     async def refresh(self, _user):
         pass
+
+
+class FakeAuditRepository:
+    def __init__(self):
+        self.events: list[dict] = []
+
+    async def record(self, **event):
+        self.events.append(event)
 
 
 def make_user() -> User:
@@ -203,3 +212,36 @@ async def test_user_management_rejects_duplicate_and_cross_organization_access()
     with pytest.raises(NotFoundError) as exception_info:
         await controller.get_user(user_id=user.id, organization_id=uuid4())
     assert exception_info.value.message == f"User '{user.id}' not found"
+
+
+@pytest.mark.asyncio
+async def test_user_mutations_record_audit_events_without_password_data():
+    user = make_user()
+    audit_repository = FakeAuditRepository()
+    controller = AuthController(FakeAuthRepository(user), audit_repository)
+
+    created = await controller.create_user(
+        organization_id=user.organization_id,
+        actor_user_id=user.id,
+        email="new@example.com",
+        password="new-password",
+        role="admin",
+        status="active",
+    )
+    await controller.update_user(
+        user_id=created.id,
+        organization_id=user.organization_id,
+        actor_user_id=user.id,
+        status="inactive",
+        password="updated-password",
+    )
+
+    assert audit_repository.events[0]["action"] is AuditAction.CREATE
+    assert audit_repository.events[0]["actor_user_id"] == user.id
+    assert "password" not in audit_repository.events[0]["metadata"]
+    assert audit_repository.events[1]["action"] is AuditAction.UPDATE
+    assert audit_repository.events[1]["actor_user_id"] == user.id
+    assert audit_repository.events[1]["metadata"] == {
+        "password": "changed",
+        "status": "inactive",
+    }

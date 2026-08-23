@@ -69,6 +69,7 @@ async def list_organizations(
     limit, offset = parse_pagination_params(limit, offset)
 
     organizations, total = await controller.list_organizations(
+        organization_id=current_user.organization_id,
         limit=limit,
         offset=offset,
         status=status,

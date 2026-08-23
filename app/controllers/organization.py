@@ -44,12 +44,13 @@ class OrganizationController:
 
     async def list_organizations(
         self,
+        organization_id: UUID,
         limit: int = 20,
         offset: int = 0,
         status: str | None = None,
     ) -> tuple[list[Organization], int]:
         """List organizations with optional filtering."""
-        filters: dict[str, str] = {}
+        filters: dict[str, Any] = {"id": organization_id}
         if status:
             filters["status"] = status
 
@@ -69,7 +70,10 @@ class OrganizationController:
         if not org:
             raise NotFoundError(f"Organization '{org_id}' not found")
 
-        return await self.repository.update(org_id, update_data)
+        updated = await self.repository.update(org_id, update_data)
+        if updated is None:
+            raise NotFoundError(f"Organization '{org_id}' not found")
+        return updated
 
     async def delete_organization(self, org_id: UUID) -> None:
         """Delete organization."""

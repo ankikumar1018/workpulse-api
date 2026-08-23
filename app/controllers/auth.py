@@ -14,7 +14,9 @@ from app.api.security import (
     hash_refresh_token,
     verify_password,
 )
+from app.domain.enums import AuditAction
 from app.infrastructure.db.models import User
+from app.repositories.audit import AuditRepository
 from app.repositories.auth import AuthRepository
 from app.schemas.responses.auth import TokenResponse
 from core.config import settings
@@ -23,8 +25,9 @@ from core.config import settings
 class AuthController:
     """Authenticate users and rotate refresh sessions."""
 
-    def __init__(self, repository: AuthRepository):
+    def __init__(self, repository: AuthRepository, audit_repository: AuditRepository | None = None):
         self.repository = repository
+        self.audit_repository = audit_repository
 
     async def login(self, email: str, password: str) -> TokenResponse:
         user = await self.repository.get_user_by_email(email)
@@ -40,6 +43,7 @@ class AuthController:
         self,
         *,
         organization_id: UUID,
+        actor_user_id: UUID | None = None,
         email: str,
         password: str,
         role: str,
@@ -49,7 +53,7 @@ class AuthController:
         if await self.repository.get_user_by_email(normalized_email):
             raise ConflictError("A user with this email already exists")
 
-        return await self.repository.create_user(
+        user = await self.repository.create_user(
             User(
                 organization_id=organization_id,
                 email=normalized_email,
@@ -58,6 +62,16 @@ class AuthController:
                 status=status,
             )
         )
+        if self.audit_repository is not None:
+            await self.audit_repository.record(
+                organization_id=organization_id,
+                actor_user_id=actor_user_id,
+                action=AuditAction.CREATE,
+                resource_type="user",
+                resource_id=user.id,
+                metadata={"email": user.email, "role": user.role, "status": user.status},
+            )
+        return user
 
     async def list_users(
         self,
@@ -86,26 +100,41 @@ class AuthController:
         *,
         user_id: UUID,
         organization_id: UUID,
+        actor_user_id: UUID | None = None,
         email: str | None = None,
         password: str | None = None,
         role: str | None = None,
         status: str | None = None,
     ) -> User:
         user = await self.get_user(user_id=user_id, organization_id=organization_id)
+        changed_fields: dict[str, str] = {}
         if email is not None:
             normalized_email = email.strip().lower()
             existing = await self.repository.get_user_by_email(normalized_email)
             if existing is not None and existing.id != user.id:
                 raise ConflictError("A user with this email already exists")
             user.email = normalized_email
+            changed_fields["email"] = normalized_email
         if password is not None:
             user.password_hash = hash_password(password)
+            changed_fields["password"] = "changed"
         if role is not None:
             user.role = role
+            changed_fields["role"] = role
         if status is not None:
             user.status = status
+            changed_fields["status"] = status
         await self.repository.session.commit()
         await self.repository.session.refresh(user)
+        if self.audit_repository is not None and changed_fields:
+            await self.audit_repository.record(
+                organization_id=organization_id,
+                actor_user_id=actor_user_id,
+                action=AuditAction.UPDATE,
+                resource_type="user",
+                resource_id=user.id,
+                metadata=changed_fields,
+            )
         return user
 
     async def refresh(self, refresh_token: str) -> TokenResponse:

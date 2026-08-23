@@ -41,6 +41,7 @@ async def create_user(
     current_user.assert_admin()
     user = await controller.create_user(
         organization_id=current_user.organization_id,
+        actor_user_id=current_user.user_id,
         email=request.email,
         password=request.password,
         role=request.role,
@@ -94,6 +95,7 @@ async def update_user(
     user = await controller.update_user(
         user_id=user_id,
         organization_id=current_user.organization_id,
+        actor_user_id=current_user.user_id,
         **request.model_dump(exclude_unset=True),
     )
     return make_success_response(to_user_response(user))

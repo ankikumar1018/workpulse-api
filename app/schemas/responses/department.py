@@ -17,6 +17,7 @@ class DepartmentResponse(BaseModel):
     organization_id: UUID
     project_id: UUID
     name: str
+    primary_contact_worker_id: UUID | None
     status: str
     created_at: datetime
     updated_at: datetime

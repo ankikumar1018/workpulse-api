@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -19,6 +20,7 @@ class DepartmentUpdateRequest(BaseModel):
     """Partially update a department."""
 
     name: str | None = Field(None, min_length=1, max_length=255)
+    primary_contact_worker_id: UUID | None = None
     status: DepartmentStatus | None = None
 
 

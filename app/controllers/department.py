@@ -6,8 +6,8 @@ from typing import Any
 from uuid import UUID
 
 from app.api.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.domain.enums import AuditAction, EntityStatus
-from app.infrastructure.db.models import Department, Project
+from app.domain.enums import AuditAction, EntityStatus, WorkerStatus
+from app.infrastructure.db.models import Department, Project, Worker
 from app.repositories.audit import AuditRepository
 from app.repositories.department import DepartmentRepository
 
@@ -28,6 +28,24 @@ class DepartmentController:
         if project is None or project.organization_id != organization_id:
             raise NotFoundError(f"Project '{project_id}' not found")
         return project
+
+    async def _validate_primary_contact_worker(
+        self,
+        *,
+        worker_id: UUID,
+        department: Department,
+        organization_id: UUID,
+    ) -> Worker:
+        worker = await self.repository.session.get(Worker, worker_id)
+        if worker is None or worker.organization_id != organization_id:
+            raise NotFoundError(f"Worker '{worker_id}' not found")
+        if worker.department_id != department.id:
+            raise UnprocessableEntityError(
+                "Primary contact worker must belong to the same department"
+            )
+        if worker.status == WorkerStatus.INACTIVE:
+            raise UnprocessableEntityError("Inactive workers cannot be primary contacts")
+        return worker
 
     async def create_department(
         self,
@@ -112,6 +130,18 @@ class DepartmentController:
             )
         ):
             raise ConflictError("A department with this name already exists")
+        if "primary_contact_worker_id" in update_data:
+            primary_contact_worker_id = update_data["primary_contact_worker_id"]
+            if department.status == EntityStatus.ARCHIVED and primary_contact_worker_id is not None:
+                raise UnprocessableEntityError(
+                    "Archived departments cannot have active primary contacts"
+                )
+            if primary_contact_worker_id is not None:
+                await self._validate_primary_contact_worker(
+                    worker_id=primary_contact_worker_id,
+                    department=department,
+                    organization_id=organization_id,
+                )
         updated = await self.repository.update(department_id, update_data)
         if updated is None:
             raise NotFoundError(f"Department '{department_id}' not found")
@@ -136,6 +166,7 @@ class DepartmentController:
             organization_id=organization_id,
         )
         department.status = EntityStatus.ARCHIVED
+        department.primary_contact_worker_id = None
         await self.repository.session.commit()
         await self.repository.session.refresh(department)
         await self._audit(
@@ -143,7 +174,10 @@ class DepartmentController:
             actor_user_id=actor_user_id,
             action=AuditAction.UPDATE,
             department=department,
-            metadata={"status": EntityStatus.ARCHIVED.value},
+            metadata={
+                "status": EntityStatus.ARCHIVED.value,
+                "primary_contact_worker_id": None,
+            },
         )
 
     async def _audit(

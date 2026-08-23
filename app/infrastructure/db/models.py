@@ -145,6 +145,11 @@ class Department(TimestampMixin, Base):
             ["projects.organization_id", "projects.id"],
             ondelete="CASCADE",
         ),
+        ForeignKeyConstraint(
+            ["organization_id", "primary_contact_worker_id"],
+            ["workers.organization_id", "workers.id"],
+            ondelete="SET NULL",
+        ),
         UniqueConstraint("project_id", "name", name="uq_departments_project_name"),
         UniqueConstraint("organization_id", "id", name="uq_departments_org_id"),
     )
@@ -160,6 +165,7 @@ class Department(TimestampMixin, Base):
         nullable=False,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    primary_contact_worker_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     status: Mapped[EntityStatus] = mapped_column(
         Enum(EntityStatus, name="entity_status", values_callable=enum_values),
         nullable=False,

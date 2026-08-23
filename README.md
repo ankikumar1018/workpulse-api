@@ -64,7 +64,9 @@ Department management is available through the project-nested endpoints
 `/api/v1/projects/{project_id}/departments` for creation and listing, and
 `/api/v1/departments/{department_id}` for retrieval, updates, and archival.
 Department operations validate project ownership and reject mutations under
-archived projects.
+archived projects. Departments now also support `primary_contact_worker_id`
+updates with strict validation: the selected worker must belong to the same
+department, remain active, and be organization-scoped.
 
 Worker management is available through `/api/v1/departments/{department_id}/workers`
 for creation and listing, and `/api/v1/workers/{worker_id}` for retrieval,

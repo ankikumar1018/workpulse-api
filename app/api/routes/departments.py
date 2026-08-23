@@ -27,6 +27,7 @@ def to_department_response(department: Department) -> DepartmentResponse:
         organization_id=department.organization_id,
         project_id=department.project_id,
         name=department.name,
+        primary_contact_worker_id=department.primary_contact_worker_id,
         status=department.status.value,
         created_at=department.created_at,
         updated_at=department.updated_at,

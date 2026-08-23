@@ -65,6 +65,7 @@ Run from backend root.
 - Start API (dev): `uv run fastapi dev app/main.py --port 8000`
 - Apply migrations: `uv run alembic upgrade head`
 - Generate migration: `uv run alembic revision --autogenerate -m "Describe change"`
+- Check for schema drift: `uv run alembic check`
 
 If dependencies change, run `uv lock` and include `uv.lock` in the same commit.
 

@@ -159,16 +159,35 @@ uv run ruff check --fix .
 
 ### Common Migration Commands
 
+After changing SQLAlchemy models, run these commands from the backend root. Ensure
+PostgreSQL is running and `DATABASE_URL` points to the target database.
+
+```powershell
+docker compose up -d postgres
+$env:DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/workpulse"
+```
+
 ```bash
-# create migration
+# verify whether model changes need a migration
+uv run alembic check
+
+# generate a migration from the model metadata
 uv run alembic revision --autogenerate -m "Describe change"
 
-# apply migrations
+# review the generated file in alembic/versions/ before applying it
+
+# apply all pending migrations
 uv run alembic upgrade head
 
 # rollback one migration
 uv run alembic downgrade -1
 ```
+
+On Windows, if `uv run alembic` selects the wrong environment, use
+`.venv\Scripts\alembic.exe` from the backend repository instead.
+
+On macOS/Linux, use `.venv/bin/alembic` if the environment is activated or
+`uv run alembic` resolves to the wrong Python environment.
 
 ## Contribution Guide
 

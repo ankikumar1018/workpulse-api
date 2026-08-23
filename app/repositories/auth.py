@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.db.models import RefreshSession, User
@@ -18,7 +18,46 @@ class AuthRepository:
         self.session = session
 
     async def get_user_by_email(self, email: str) -> User | None:
-        result = await self.session.execute(select(User).where(User.email == email.lower()))
+        result = await self.session.execute(
+            select(User).where(func.lower(User.email) == email.lower())
+        )
+        return result.scalar_one_or_none()
+
+    async def create_user(self, user: User) -> User:
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
+    async def list_users(
+        self,
+        *,
+        organization_id: UUID,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[User], int]:
+        base_query = select(User).where(User.organization_id == organization_id)
+        count_result = await self.session.execute(
+            select(func.count(User.id)).where(User.organization_id == organization_id)
+        )
+        total = count_result.scalar_one()
+        result = await self.session.execute(
+            base_query.order_by(User.created_at, User.id).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all()), total
+
+    async def get_user_in_organization(
+        self,
+        *,
+        user_id: UUID,
+        organization_id: UUID,
+    ) -> User | None:
+        result = await self.session.execute(
+            select(User).where(
+                User.id == user_id,
+                User.organization_id == organization_id,
+            )
+        )
         return result.scalar_one_or_none()
 
     async def get_user(self, user_id: UUID) -> User | None:

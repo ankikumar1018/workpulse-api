@@ -7,9 +7,12 @@ from uuid import UUID
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import ForbiddenError, UnauthorizedError
 from app.api.security import decode_access_token
+from app.infrastructure.db.models import User
+from core.database import get_session
 
 
 class AuthContext:
@@ -45,6 +48,7 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 async def get_auth_context(
     token: Annotated[str | None, Depends(oauth2_scheme)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> AuthContext:
     """Decode and validate the bearer token supplied by FastAPI's OAuth2 scheme."""
     if not token:
@@ -52,6 +56,11 @@ async def get_auth_context(
 
     try:
         claims = decode_access_token(token)
+        user = await session.get(User, UUID(claims["user_id"]))
+        if user is None or user.status != "active":
+            raise UnauthorizedError("User is inactive or does not exist")
+        if str(user.organization_id) != claims["organization_id"]:
+            raise UnauthorizedError("User organization is invalid")
         return AuthContext(
             user_id=UUID(claims["user_id"]),
             organization_id=UUID(claims["organization_id"]),

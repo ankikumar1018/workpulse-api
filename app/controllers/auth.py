@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
-from app.api.errors import UnauthorizedError
+from app.api.errors import ConflictError, NotFoundError, UnauthorizedError
 from app.api.security import (
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
+    hash_password,
     hash_refresh_token,
     verify_password,
 )
@@ -33,6 +35,78 @@ class AuthController:
         ):
             raise UnauthorizedError("Invalid email or password")
         return await self._issue_tokens(user)
+
+    async def create_user(
+        self,
+        *,
+        organization_id: UUID,
+        email: str,
+        password: str,
+        role: str,
+        status: str,
+    ) -> User:
+        normalized_email = email.strip().lower()
+        if await self.repository.get_user_by_email(normalized_email):
+            raise ConflictError("A user with this email already exists")
+
+        return await self.repository.create_user(
+            User(
+                organization_id=organization_id,
+                email=normalized_email,
+                password_hash=hash_password(password),
+                role=role,
+                status=status,
+            )
+        )
+
+    async def list_users(
+        self,
+        *,
+        organization_id: UUID,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[User], int]:
+        return await self.repository.list_users(
+            organization_id=organization_id,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def get_user(self, *, user_id: UUID, organization_id: UUID) -> User:
+        user = await self.repository.get_user_in_organization(
+            user_id=user_id,
+            organization_id=organization_id,
+        )
+        if user is None:
+            raise NotFoundError(f"User '{user_id}' not found")
+        return user
+
+    async def update_user(
+        self,
+        *,
+        user_id: UUID,
+        organization_id: UUID,
+        email: str | None = None,
+        password: str | None = None,
+        role: str | None = None,
+        status: str | None = None,
+    ) -> User:
+        user = await self.get_user(user_id=user_id, organization_id=organization_id)
+        if email is not None:
+            normalized_email = email.strip().lower()
+            existing = await self.repository.get_user_by_email(normalized_email)
+            if existing is not None and existing.id != user.id:
+                raise ConflictError("A user with this email already exists")
+            user.email = normalized_email
+        if password is not None:
+            user.password_hash = hash_password(password)
+        if role is not None:
+            user.role = role
+        if status is not None:
+            user.status = status
+        await self.repository.session.commit()
+        await self.repository.session.refresh(user)
+        return user
 
     async def refresh(self, refresh_token: str) -> TokenResponse:
         try:

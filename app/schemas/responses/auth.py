@@ -1,6 +1,11 @@
 """Authentication response schemas."""
 
-from pydantic import BaseModel, Field
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.common import to_camel
 
 
 class TokenResponse(BaseModel):
@@ -11,4 +16,18 @@ class TokenResponse(BaseModel):
     token_type: str = Field(default="bearer")
 
 
-__all__ = ["TokenResponse"]
+class UserResponse(BaseModel):
+    """Public administrator user representation."""
+
+    id: UUID
+    organization_id: UUID
+    email: str
+    role: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+__all__ = ["TokenResponse", "UserResponse"]

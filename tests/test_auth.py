@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.api.errors import UnauthorizedError
+from app.api.errors import ConflictError, NotFoundError, UnauthorizedError
 from app.api.security import (
     create_refresh_token,
     decode_refresh_token,
@@ -17,19 +17,43 @@ from app.infrastructure.db.models import RefreshSession, User
 class FakeAuthRepository:
     def __init__(self, user: User):
         self.user = user
-        self.session: RefreshSession | None = None
+        self.users = [user]
+        self.refresh_session: RefreshSession | None = None
+        self.database_session = FakeDatabaseSession()
 
     async def get_user_by_email(self, email: str):
-        return self.user if email.lower() == self.user.email else None
+        return next((user for user in self.users if email.lower() == user.email), None)
 
     async def get_user(self, user_id):
-        return self.user if user_id == self.user.id else None
+        return next((user for user in self.users if user_id == user.id), None)
+
+    async def create_user(self, user):
+        self.users.append(user)
+        return user
+
+    async def list_users(self, *, organization_id, limit, offset):
+        users = [user for user in self.users if user.organization_id == organization_id]
+        return users[offset : offset + limit], len(users)
+
+    async def get_user_in_organization(self, *, user_id, organization_id):
+        return next(
+            (
+                user
+                for user in self.users
+                if user.id == user_id and user.organization_id == organization_id
+            ),
+            None,
+        )
 
     async def get_refresh_session(self, token_hash: str):
-        return self.session if self.session and self.session.token_hash == token_hash else None
+        return (
+            self.refresh_session
+            if self.refresh_session and self.refresh_session.token_hash == token_hash
+            else None
+        )
 
     async def create_refresh_session(self, *, user_id, token_hash, expires_at):
-        self.session = RefreshSession(
+        self.refresh_session = RefreshSession(
             user_id=user_id,
             token_hash=token_hash,
             expires_at=expires_at,
@@ -38,6 +62,18 @@ class FakeAuthRepository:
 
     async def revoke_refresh_session(self, session, now):
         session.revoked_at = now
+
+    @property
+    def session(self):
+        return self.database_session
+
+
+class FakeDatabaseSession:
+    async def commit(self):
+        pass
+
+    async def refresh(self, _user):
+        pass
 
 
 def make_user() -> User:
@@ -81,7 +117,7 @@ async def test_login_issues_tokens_and_refresh_rotates_session():
     controller = AuthController(repository)
 
     tokens = await controller.login(user.email, "correct-password")
-    old_session = repository.session
+    old_session = repository.refresh_session
 
     assert tokens.token_type == "bearer"
     assert tokens.access_token
@@ -112,3 +148,58 @@ async def test_refresh_rejects_revoked_session():
 
     with pytest.raises(UnauthorizedError):
         await controller.refresh(tokens.refresh_token)
+
+
+@pytest.mark.asyncio
+async def test_user_lifecycle_normalizes_email_and_hashes_password():
+    organization_id = uuid4()
+    user = make_user()
+    user.organization_id = organization_id
+    repository = FakeAuthRepository(user)
+    controller = AuthController(repository)
+
+    created = await controller.create_user(
+        organization_id=organization_id,
+        email="  NEW@EXAMPLE.COM ",
+        password="new-password",
+        role="admin",
+        status="active",
+    )
+
+    assert created.email == "new@example.com"
+    assert created.password_hash != "new-password"
+    assert verify_password("new-password", created.password_hash)
+
+    updated = await controller.update_user(
+        user_id=created.id,
+        organization_id=organization_id,
+        password="updated-password",
+        status="inactive",
+    )
+
+    assert updated.status == "inactive"
+    assert verify_password("updated-password", updated.password_hash)
+    with pytest.raises(UnauthorizedError) as exception_info:
+        await controller.login(created.email, "updated-password")
+    assert exception_info.value.message == "Invalid email or password"
+
+
+@pytest.mark.asyncio
+async def test_user_management_rejects_duplicate_and_cross_organization_access():
+    user = make_user()
+    repository = FakeAuthRepository(user)
+    controller = AuthController(repository)
+
+    with pytest.raises(ConflictError) as exception_info:
+        await controller.create_user(
+            organization_id=user.organization_id,
+            email=user.email,
+            password="another-password",
+            role="admin",
+            status="active",
+        )
+    assert exception_info.value.message == "A user with this email already exists"
+
+    with pytest.raises(NotFoundError) as exception_info:
+        await controller.get_user(user_id=user.id, organization_id=uuid4())
+    assert exception_info.value.message == f"User '{user.id}' not found"

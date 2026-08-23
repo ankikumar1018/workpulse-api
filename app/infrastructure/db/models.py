@@ -68,6 +68,10 @@ class User(TimestampMixin, Base):
     """Administrator identity scoped to an organization."""
 
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("role IN ('admin')", name="ck_users_role_admin"),
+        CheckConstraint("status IN ('active', 'inactive')", name="ck_users_status"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
     organization_id: Mapped[uuid.UUID] = mapped_column(

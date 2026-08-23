@@ -36,6 +36,24 @@ WorkPulse API is the system of record for workforce communication workflows:
 - Template-driven messaging flows
 - Delivery visibility and auditability
 
+## Authentication and User Management
+
+Authentication uses short-lived JWT access tokens and rotatable, revocable
+refresh tokens. Refresh-token hashes are stored in PostgreSQL; raw refresh
+tokens are never persisted.
+
+Available endpoints:
+
+- `POST /api/v1/auth/token` — OAuth2 password-form login using the email as `username`.
+- `POST /api/v1/auth/refresh` — rotate a refresh token and receive a new token pair.
+- `POST /api/v1/users` — create an administrator in the current organization.
+- `GET /api/v1/users` — list administrators in the current organization.
+- `GET/PATCH /api/v1/users/{user_id}` — retrieve or update an administrator.
+
+User lifecycle states are `active` and `inactive`; inactive users cannot log in,
+refresh tokens, or access protected API routes. All user-management endpoints
+require an active administrator bearer token and enforce organization scoping.
+
 ## Architecture
 
 The project follows a layered modular monolith:

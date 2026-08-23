@@ -12,7 +12,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.errors import APIException
-from app.api.routes import auth_router, organizations_router, users_router
+from app.api.routes import (
+    auth_router,
+    departments_router,
+    organizations_router,
+    projects_router,
+    users_router,
+    workers_router,
+)
 from app.api.utils import camelize, generate_request_id, make_success_response
 from app.schemas import ErrorEnvelope, SuccessEnvelope
 from app.schemas.common import APIError, HealthStatus, ResponseStatus
@@ -22,6 +29,7 @@ from core.database import close_db, init_db
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         await init_db()
@@ -118,14 +126,19 @@ def create_app() -> FastAPI:
     @app.get("/health", response_model=SuccessEnvelope, tags=["Health"])
     async def health_check():
         """Health check endpoint."""
-        return make_success_response({
-            "status": HealthStatus.HEALTHY,
-            "version": settings.APP_VERSION,
-        })
+        return make_success_response(
+            {
+                "status": HealthStatus.HEALTHY,
+                "version": settings.APP_VERSION,
+            }
+        )
 
     # Include routers
     app.include_router(auth_router)
     app.include_router(organizations_router)
+    app.include_router(projects_router)
+    app.include_router(departments_router)
+    app.include_router(workers_router)
     app.include_router(users_router)
 
     return app

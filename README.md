@@ -54,6 +54,31 @@ User lifecycle states are `active` and `inactive`; inactive users cannot log in,
 refresh tokens, or access protected API routes. All user-management endpoints
 require an active administrator bearer token and enforce organization scoping.
 
+Project management endpoints require an active administrator bearer token and
+enforce organization scoping. `GET /api/v1/projects/{project_id}` returns
+archived projects for history, while archived projects cannot be modified.
+`DELETE /api/v1/projects/{project_id}` archives the project rather than
+physically deleting it.
+
+Department management is available through the project-nested endpoints
+`/api/v1/projects/{project_id}/departments` for creation and listing, and
+`/api/v1/departments/{department_id}` for retrieval, updates, and archival.
+Department operations validate project ownership and reject mutations under
+archived projects.
+
+Worker management is available through `/api/v1/departments/{department_id}/workers`
+for creation and listing, and `/api/v1/workers/{worker_id}` for retrieval,
+updates, and deactivation. Worker operations validate department and project
+ownership, require E.164 phone numbers, enforce organization-wide phone
+uniqueness, and reject new workers under archived projects or departments.
+
+Department worker assignment lifecycle management is available through
+`POST /api/v1/departments/{department_id}/workers/{worker_id}/assignment` and
+`DELETE /api/v1/departments/{department_id}/workers/{worker_id}/assignment`.
+Assignment changes are organization-scoped, require active target departments,
+reject inactive workers as new assignment recipients, and mark removed
+assignments as inactive to keep communication recipients valid.
+
 ## Architecture
 
 The project follows a layered modular monolith:

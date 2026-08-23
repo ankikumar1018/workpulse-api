@@ -5,15 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException, status
-from pydantic import BaseModel
 
-
-class APIError(BaseModel):
-    """Machine-readable API error."""
-
-    code: str
-    message: str
-    details: list[dict[str, Any]] | None = None
+from app.schemas.common import APIError
 
 
 class APIException(HTTPException):
@@ -93,7 +86,7 @@ class UnprocessableEntityError(APIException):
 
     def __init__(self, message: str = "Cannot process request"):
         super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             error_code="UNPROCESSABLE_ENTITY",
             message=message,
         )

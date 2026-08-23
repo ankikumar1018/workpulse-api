@@ -64,10 +64,11 @@ The project follows a layered modular monolith:
 
 ```text
 app/
-  api/             # HTTP routes and schemas
+  api/             # HTTP routes, dependencies, and errors
   application/     # use-case orchestration
   domain/          # business rules and entities
   infrastructure/  # DB/external adapters/providers
+  schemas/         # request and response contracts
   workers/         # async jobs and webhook handlers
 alembic/           # database migrations
 tests/             # automated test suite

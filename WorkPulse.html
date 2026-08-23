@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workforce Messaging Platform — Implementation Progress</title>
+<style>
+:root{
+ --bg:#f3f5f9;--panel:#fff;--ink:#172033;--muted:#667085;--line:#dfe3ea;
+ --accent:#315efb;--accent2:#eef2ff;--good:#117a50;--goodbg:#e8f7f0;
+ --warn:#9a5a00;--warnbg:#fff5df;--dark:#111827;--shadow:0 8px 28px rgba(16,24,40,.07)
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+section[id]{scroll-margin-top:74px}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:14px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.container{max-width:1220px;margin:auto;padding:30px 22px 70px}
+.hero{background:linear-gradient(135deg,#111827,#253b78 60%,#315efb);color:#fff;border-radius:24px;padding:36px;box-shadow:var(--shadow)}
+.badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.15);padding:6px 11px;border-radius:999px;font-size:12px}
+h1{font-size:36px;line-height:1.12;margin:15px 0 10px;letter-spacing:-.8px}
+h2{font-size:23px;line-height:1.25;margin:0 0 12px;letter-spacing:-.3px}
+h3{font-size:16px;line-height:1.35;margin:18px 0 7px}
+p{margin:7px 0;color:var(--muted)}
+.hero p{color:#dbe4ff;max-width:920px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
+.card,.section{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+.card{padding:20px}.section{padding:25px;margin-top:20px;overflow:visible}
+.kpi{font-size:27px;font-weight:750}.label{color:var(--muted);font-size:12px}
+.nav{position:sticky;top:0;z-index:20;background:rgba(243,245,249,.96);backdrop-filter:blur(10px);
+padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:4px}
+.navin{max-width:1220px;margin:auto;padding:0 22px;display:flex;gap:7px;overflow:auto}
+.nav a{white-space:nowrap;text-decoration:none;color:#344054;background:#fff;border:1px solid var(--line);padding:7px 10px;border-radius:9px;font-size:12px}
+.status{display:inline-flex;align-items:center;gap:6px;color:var(--good);background:var(--goodbg);padding:5px 9px;border-radius:999px;font-weight:700;font-size:12px}
+.done{color:var(--good);font-weight:700}.tag{display:inline-block;padding:3px 7px;border-radius:6px;background:var(--accent2);color:#2947bb;font-size:11px;font-weight:700;margin:2px}
+table{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;table-layout:fixed}
+th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere;word-break:normal;color:var(--ink)}
+th{font-size:12px;color:#344054;background:#f7f8fa;font-weight:750}
+td{font-size:13px;background:#fff}
+tr:last-child td{border-bottom:0}
+th:first-child{width:15%}th:nth-child(2){width:27%}th:nth-child(3){width:58%}
+code{background:#eef0f3;color:#243047;border-radius:5px;padding:2px 5px;font-size:12px;white-space:nowrap}
+.flow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.node{background:#f8faff;border:1px solid #cfd8ff;padding:10px 13px;border-radius:10px;font-weight:650;color:#18233c;display:block}
+.arrow{color:#667085}
+.checklist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.check{padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fafbfc;color:var(--ink)}
+.check:before{content:"✓";color:var(--good);font-weight:800;margin-right:8px}
+ul{margin:8px 0 0;padding-left:22px}li{margin:6px 0;color:#344054}
+.callout{border-left:4px solid var(--accent);background:#f4f6ff;color:#27345a;padding:14px 16px;border-radius:8px;margin-top:14px}
+.callout p,.callout li{color:#344054}.warning{border-left-color:#e69a18;background:var(--warnbg)}
+.workitem{border:1px solid var(--line);border-radius:14px;padding:16px 17px;margin:11px 0;background:#fff}
+.workitem .wihead{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}
+.workitem .id{font-size:11px;font-weight:800;color:#315efb;letter-spacing:.4px}
+.workitem .title{font-size:15px;font-weight:750;color:#172033;margin-top:2px}
+.workitem p{color:#475467;margin-top:8px}
+.workitem .meta{margin-top:9px;color:#667085;font-size:12px}
+.workgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+details{border:1px solid var(--line);border-radius:12px;background:#fff;margin:10px 0;overflow:hidden}
+summary{cursor:pointer;padding:13px 15px;font-weight:750;color:#172033;background:#fafbfc}
+details>div{padding:14px 16px;color:#475467}
+.small{font-size:12px;color:var(--muted)}
+footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
+@media(max-width:900px){.grid,.checklist,.workgrid{grid-template-columns:1fr}th:first-child,th:nth-child(2),th:nth-child(3){width:auto}table{table-layout:auto}}
+@media(max-width:650px){h1{font-size:29px}.section{padding:18px}.container{padding:20px 14px 55px}.hero{padding:25px}}
+</style>
+</head>
+<body id="top">
+<div class="nav"><div class="navin">
+<a href="#project-identity">Start</a>
+<a href="#decision">Decision</a>
+<a href="#implementation-status">Implementation Status</a>
+<a href="#scope">Scope</a>
+<a href="#latest-decisions">Latest Decisions</a>
+<a href="#domain">Domain</a>
+<a href="#architecture">Architecture</a>
+<a href="#messaging">Messaging</a>
+<a href="#delivery">Reliability</a>
+<a href="#security">Security</a>
+<a href="#api">API</a>
+<a href="#local-dev">Local Dev</a>
+<a href="#business-flow">Flow</a>
+<a href="#backlog">Backlog</a>
+<a href="#open">Deferred</a>
+<a href="#exit">Exit</a>
+<a href="#workitems">Work Items</a>
+<a href="#guardrails">Guardrails</a>
+</div></div>
+
+<main class="container">
+
+<section class="section" id="project-identity">
+<h2>Project Identity & Repository Strategy</h2>
+<p>This is the architectural baseline for the MVP. The platform is API-first: the backend is the system of record, the admin web app is an API consumer, and future Android/iOS clients can consume the same versioned API.</p>
+
+<div class="grid">
+  <div class="card"><div class="label">PROJECT NAME</div><div class="kpi">WorkPulse</div><p>Working product name for the workforce communication automation platform.</p></div>
+  <div class="card"><div class="label">BACKEND REPOSITORY</div><div class="kpi">workpulse-api</div><p>FastAPI backend, domain logic, APIs, scheduling and messaging integrations.</p></div>
+  <div class="card"><div class="label">FRONTEND REPOSITORY</div><div class="kpi">workpulse-admin</div><p>Next.js + TypeScript administrative web application.</p></div>
+</div>
+
+<div class="callout">
+<b>Architect decision: two repositories.</b>
+<p>Use <code>workpulse-api</code> and <code>workpulse-admin</code> as separate repositories for the MVP. This gives independent deployment, release cadence, dependency management and ownership while enforcing a clean API boundary. A future mobile application becomes another API consumer instead of requiring a backend redesign.</p>
+</div>
+
+<h3>workpulse-api — Backend Repository</h3>
+<div class="card">
+<ul>
+<li><code>app/api/</code> — REST endpoints, request/response schemas and API dependencies.</li>
+<li><code>app/domain/</code> — entities, value objects and business rules.</li>
+<li><code>app/application/</code> — use cases and application orchestration.</li>
+<li><code>app/infrastructure/</code> — PostgreSQL, Cloud Tasks, WhatsApp and external adapters.</li>
+<li><code>app/workers/</code> — asynchronous task/message execution entry points.</li>
+<li><code>tests/</code> — unit, integration and provider/contract tests.</li>
+<li><code>alembic/</code> — versioned database migrations.</li>
+<li><code>Dockerfile</code> and <code>docker-compose.yml</code> — local development environment.</li>
+</ul>
+<p><b>Primary responsibility:</b> all security-sensitive and business-critical behavior, including tenant isolation, authorization, worker/primary-contact selection, work status, template rendering, scheduling, idempotency, delivery tracking and channel integrations.</p>
+</div>
+
+<h3>workpulse-admin — Frontend Repository</h3>
+<div class="card">
+<ul>
+<li><code>app/</code> — Next.js routes/pages.</li>
+<li><code>features/</code> — project, department, worker, work, template and scheduling modules.</li>
+<li><code>components/</code> — reusable UI components.</li>
+<li><code>lib/api/</code> — typed API client and request handling.</li>
+<li><code>types/</code> — API/client types.</li>
+<li><code>tests/</code> — component and end-to-end frontend tests.</li>
+<li><code>Dockerfile</code> — containerized development/production runtime.</li>
+</ul>
+<p><b>Primary responsibility:</b> administrator experience, forms, dashboards, navigation, client-side validation and presentation. The frontend must never directly access PostgreSQL or own business-critical scheduling/messaging rules.</p>
+</div>
+
+<h3>Repository Responsibility Matrix</h3>
+<table>
+<tr><th>Concern</th><th>workpulse-api</th><th>workpulse-admin</th></tr>
+<tr><td>Business rules</td><td>Authoritative source</td><td>Presentation only</td></tr>
+<tr><td>Database</td><td>Owns PostgreSQL and migrations</td><td>No direct database access</td></tr>
+<tr><td>Authentication / authorization</td><td>Enforces security</td><td>Consumes authenticated API</td></tr>
+<tr><td>Scheduling</td><td>Owns schedule calculation and execution</td><td>Configures schedules through API</td></tr>
+<tr><td>Messaging</td><td>Owns channel abstraction, provider integration and delivery state</td><td>Displays/configures messaging</td></tr>
+<tr><td>API contract</td><td>Publishes versioned OpenAPI contract</td><td>Consumes the contract</td></tr>
+<tr><td>Deployment</td><td>Cloud Run + supporting GCP services</td><td>Independent frontend deployment</td></tr>
+<tr><td>Release cadence</td><td>Independent</td><td>Independent, subject to API compatibility</td></tr>
+</table>
+
+<h3>Branching & Collaboration</h3>
+<ul>
+<li><code>main</code> is protected and represents the releasable branch.</li>
+<li>Use short-lived branches such as <code>feat/project-management</code>, <code>feat/message-scheduling</code> and <code>fix/webhook-idempotency</code>.</li>
+<li>Every change is merged through pull request review and automated quality checks.</li>
+<li>Backend and frontend releases are independent; do not force synchronized version numbers.</li>
+<li>Breaking API changes require an explicit API-versioning decision rather than silently breaking the frontend.</li>
+</ul>
+
+<div class="callout warning">
+<b>Future-proofing:</b> if Android/iOS is introduced, add a dedicated client repository rather than coupling mobile logic into the web application. If SMS is introduced, add an SMS channel adapter behind the existing messaging abstraction. If two-way communication is introduced, add inbound-message/conversation capabilities to the backend without changing the repository boundary.
+</div>
+</section>
+
+<section class="hero" id="decision">
+  <span class="badge">● IMPLEMENTATION IN PROGRESS · v1.1</span>
+  <h1>Workforce Messaging Automation Platform</h1>
+  <p>Approved architecture and implementation tracker for the interior-design workforce communication platform. The backend foundation, JWT authentication, tenant isolation, admin authorization and initial audit trail are complete. The MVP remains one-way WhatsApp communication from administrators to primary department contacts, while the architecture stays ready for SMS, mobile clients and two-way communication.</p>
+  <div class="flow">
+    <div class="node">Admin</div><span class="arrow">→</span><div class="node">API</div><span class="arrow">→</span><div class="node">Schedule</div><span class="arrow">→</span><div class="node">Message Job</div><span class="arrow">→</span><div class="node">WhatsApp</div><span class="arrow">→</span><div class="node">Worker</div>
+  </div>
+</section>
+
+<section class="grid">
+  <div class="card"><div class="kpi">API-first</div><div class="label">Web, Android and iOS remain replaceable clients.</div></div>
+  <div class="card"><div class="kpi">Modular monolith</div><div class="label">One deployable backend; clean domain boundaries.</div></div>
+  <div class="card"><div class="kpi">MVP: WhatsApp</div><div class="label">Channel abstraction keeps SMS and inbound communication possible.</div></div>
+</section>
+
+<section class="section" id="implementation-status">
+<h2>Current Implementation Status</h2><span class="status">✓ PHASE 4 IN PROGRESS</span>
+<p class="small">Last reconciled: 2026-08-23 · Backend baseline: commit <code>20abdf8</code></p>
+<table><tr><th>Area</th><th>Status</th><th>Verified outcome</th></tr>
+<tr><td>Foundation and architecture</td><td><span class="done">Done</span></td><td>FastAPI, PostgreSQL, SQLAlchemy, Alembic, Docker workflow and quality tooling are established.</td></tr>
+<tr><td>Authentication</td><td><span class="done">Done</span></td><td>JWT access tokens, refresh rotation/revocation and hashed refresh-session storage are implemented.</td></tr>
+<tr><td>Tenant boundary</td><td><span class="done">Done</span></td><td>Organizations are modeled as the tenant boundary; organization listing and user access are scoped to the authenticated organization.</td></tr>
+<tr><td>Admin authorization</td><td><span class="done">Done</span></td><td>Protected operations require active users and admin role; the current database role, user status and token/organization consistency are checked at request time.</td></tr>
+<tr><td>Audit logging</td><td><span class="done">Initial slice done</span></td><td>Administrator creation and updates record actor, organization, resource, action and non-sensitive metadata.</td></tr>
+<tr><td>Stage 3 delivery</td><td><span class="done">Done</span></td><td>Projects, departments, workers, assignment lifecycle, primary-contact rules and consent-aware recipient validation are implemented and tested.</td></tr>
+<tr><td>Current active item</td><td><span class="tag">WI-4.1</span></td><td>Work item model and persistence are now active with strict project/department ownership boundaries.</td></tr>
+<tr><td>Next item</td><td><span class="tag">WI-4.2</span></td><td>Implement work item lifecycle transitions with explicit validation of valid status changes.</td></tr>
+</table>
+<div class="callout warning"><b>Validation note:</b> the focused and full backend test suites pass. Ruff and changed-file Black/mypy checks pass. Repository-wide Black/mypy findings and the isort configuration incompatibility are existing quality-tool issues tracked separately from the delivered feature changes.</div>
+</section>
+
+<section class="section" id="scope">
+<h2>1. Product Scope — Finalized</h2>
+<span class="status">✓ DONE</span>
+<table><tr><th>Area</th><th>MVP decision</th><th>Future-ready boundary</th></tr>
+<tr><td>Users</td><td>Admin users manage business/project data.</td><td>RBAC can expand to managers/viewers.</td></tr>
+<tr><td>Hierarchy</td><td>Organization → Project → Department → Worker.</td><td>Tenant isolation and reusable organizational model.</td></tr>
+<tr><td>Primary department contact</td><td>Exactly one active communication contact per department.</td><td>Can evolve to escalation/multiple recipients.</td></tr>
+<tr><td>Work</td><td>Department work items with status, priority and due dates.</td><td>Worker-driven updates later.</td></tr>
+<tr><td>Communication</td><td>Admin-configured templates and one-way scheduled WhatsApp messages.</td><td>SMS + inbound messages + conversations.</td></tr>
+<tr><td>Scheduling</td><td>Start time, end time, interval and timezone.</td><td>More advanced recurrence/escalation later.</td></tr>
+<tr><td>Client</td><td>Web admin UI.</td><td>Android/iOS consume the same API.</td></tr>
+</table>
+<div class="callout"><b>Scope rule:</b> Do not build two-way messaging, SMS delivery, mobile applications, Kafka, Kubernetes, Redis, or microservices in MVP. Their extension points are designed now; implementation waits for a real requirement.</div>
+</section>
+
+<section class="section" id="latest-decisions">
+<h2>1A. Latest Decisions (Updated)</h2>
+<span class="status">✓ UPDATED</span>
+<p>These decisions supersede older assumptions and should guide implementation immediately.</p>
+<table><tr><th>Area</th><th>Final decision</th><th>Purpose</th></tr>
+<tr><td>Delivery approach</td><td>Build in three phases: core API/data, auth, then advanced scale/compliance.</td><td>Keep MVP simple while preserving a clean growth path.</td></tr>
+<tr><td>Authentication</td><td>JWT access + refresh token flow.</td><td>Secure API-first access with controlled token lifecycle.</td></tr>
+<tr><td>Social login</td><td>Google and future providers through identity mapping (additive).</td><td>Allow expansion without redesigning core user data.</td></tr>
+<tr><td>Authorization (MVP)</td><td>Admin-only role at first; enforce authorization on every protected route.</td><td>Ship fast without premature policy complexity.</td></tr>
+<tr><td>Authorization (future)</td><td>Fine-grained RBAC tables in Phase 3.</td><td>Introduce role-permission matrices only when needed.</td></tr>
+<tr><td>Schema style</td><td>Prefer explicit state fields over vague boolean flags.</td><td>Improve maintainability, readability and data quality.</td></tr>
+</table>
+
+<h3>Phase-wise Database Decision</h3>
+<table><tr><th>Phase</th><th>Tables</th><th>Purpose</th></tr>
+<tr><td>Phase 1: Core API</td><td><code>organizations</code>, <code>projects</code>, <code>departments</code>, <code>workers</code>, <code>work_items</code>, <code>templates</code>, <code>schedules</code>, <code>messages</code>, <code>audit_logs</code></td><td>Enable end-to-end business workflows and traceability.</td></tr>
+<tr><td>Phase 2: Auth</td><td><code>users</code>, <code>auth_identities</code>, <code>refresh_sessions</code></td><td>Secure all protected APIs and support future social login.</td></tr>
+<tr><td>Phase 3: Advanced</td><td>RBAC, reliability, custom fields, compliance and event/history support tables.</td><td>Add complexity only when operational needs justify it.</td></tr>
+</table>
+
+<div class="callout warning"><b>Implementation guardrail:</b> avoid phase-3 schema complexity in phase-1 migrations unless explicitly required by a validated use case.</div>
+</section>
+
+<section class="section" id="domain">
+<h2>2. Domain Model & Business Rules</h2><span class="status">✓ DEFINED</span>
+<div class="flow">
+<div class="node">Organization</div><span class="arrow">→</span><div class="node">Project</div><span class="arrow">→</span><div class="node">Department</div><span class="arrow">→</span><div class="node">Worker</div>
+</div>
+<div class="flow">
+<div class="node">Project</div><span class="arrow">→</span><div class="node">Work Item</div><span class="arrow">→</span><div class="node">Status History</div>
+</div>
+<div class="flow">
+<div class="node">Schedule</div><span class="arrow">→</span><div class="node">Communication Job</div><span class="arrow">→</span><div class="node">Message</div><span class="arrow">→</span><div class="node">Delivery</div>
+</div>
+<div class="checklist">
+<div class="check">Organization is the tenant boundary.</div><div class="check">Project belongs to exactly one organization.</div>
+<div class="check">Department belongs to a project.</div><div class="check">MVP workers have one department assignment; many-to-many assignment remains a future extension if required.</div>
+<div class="check">Each department has one active primary contact in MVP.</div><div class="check">A worker has channel-specific contact points.</div>
+<div class="check">Work-item transitions are auditable.</div><div class="check">Messages have immutable logical identity.</div>
+<div class="check">Scheduling is independent from channel implementation.</div><div class="check">Provider IDs are stored for traceability.</div>
+</div>
+<h3 style="margin-top:18px">Core status model</h3>
+<p><span class="tag">Pending</span><span class="tag">In Progress</span><span class="tag">Blocked</span><span class="tag">Material Pending</span><span class="tag">Waiting for Design</span><span class="tag">Completed</span><span class="tag">Cancelled</span></p>
+</section>
+
+<section class="section" id="architecture">
+<h2>3. Technical Architecture — Finalized</h2><span class="status">✓ APPROVED</span>
+<div class="flow">
+<div class="node">Next.js + TypeScript</div><span class="arrow">→ HTTPS/JSON →</span><div class="node">FastAPI</div><span class="arrow">→</span><div class="node">Domain/Application</div><span class="arrow">→</span><div class="node">PostgreSQL</div>
+</div>
+<div class="flow">
+<div class="node">Scheduler</div><span class="arrow">→</span><div class="node">Cloud Tasks</div><span class="arrow">→</span><div class="node">Message Processor</div><span class="arrow">→</span><div class="node">Channel Adapter</div>
+</div>
+<table><tr><th>Layer</th><th>Selection</th><th>Reason</th></tr>
+<tr><td>Backend</td><td>Python + FastAPI</td><td>API-first, typed contracts, OpenAPI, external I/O/webhooks.</td></tr>
+<tr><td>Validation</td><td>Pydantic v2</td><td>Strong request/response/domain boundary validation.</td></tr>
+<tr><td>ORM</td><td>SQLAlchemy 2</td><td>Explicit relational modeling and transaction control.</td></tr>
+<tr><td>Database</td><td>PostgreSQL</td><td>Strong fit for relational tenant/project/work/message data.</td></tr>
+<tr><td>Migrations</td><td>Alembic</td><td>Versioned schema evolution.</td></tr>
+<tr><td>Web</td><td>Next.js + TypeScript</td><td>Modern admin client consuming the public API.</td></tr>
+<tr><td>Cloud</td><td>GCP</td><td>Cloud Run + Cloud Tasks is a clean fit for this workload.</td></tr>
+<tr><td>Compute</td><td>Cloud Run</td><td>Container-first, stateless API/webhook workloads.</td></tr>
+<tr><td>Scheduling</td><td>Cloud Tasks</td><td>Delayed/retried HTTP execution without introducing a task framework.</td></tr>
+<tr><td>Storage</td><td>Cloud Storage</td><td>Future attachments/documents; not primary business storage.</td></tr>
+<tr><td>Secrets</td><td>Secret Manager</td><td>Provider/database/application secrets.</td></tr>
+<tr><td>Events</td><td>None in MVP</td><td>Add Pub/Sub only when independent consumers justify it.</td></tr>
+</table>
+<div class="callout warning"><b>Architecture guardrail:</b> The core domain must not depend directly on GCP, Cloud Tasks, WhatsApp, or Next.js. Infrastructure adapters sit outside the domain/application layer.</div>
+</section>
+
+<section class="section" id="messaging">
+<h2>4. Messaging & Channel Design</h2><span class="status">✓ DESIGNED</span>
+<div class="flow">
+<div class="node">Business Intent</div><span class="arrow">→</span><div class="node">Template Renderer</div><span class="arrow">→</span><div class="node">Channel Adapter</div><span class="arrow">→</span><div class="node">Provider</div>
+</div>
+<table><tr><th>Concept</th><th>Design</th></tr>
+<tr><td>Message intent</td><td>Channel-independent meaning, e.g. work reminder/status update.</td></tr>
+<tr><td>Template</td><td>Admin-configured content with controlled dynamic variables.</td></tr>
+<tr><td>Channel</td><td>WhatsApp in MVP; SMS is a future adapter.</td></tr>
+<tr><td>Provider</td><td>External implementation such as Meta WhatsApp Business Platform.</td></tr>
+<tr><td>Delivery</td><td>Internal state plus provider message ID and webhook updates.</td></tr>
+<tr><td>Idempotency</td><td>Logical message/job identity prevents duplicate sends during retries.</td></tr>
+<tr><td>Inbound</td><td>Not enabled in MVP; model/API boundary remains available for future conversations.</td></tr>
+</table>
+<div class="checklist">
+<div class="check">No WhatsApp-specific logic in project/work/scheduling domain.</div>
+<div class="check">Provider errors normalized into application errors.</div>
+<div class="check">Webhook authenticity must be verified.</div>
+<div class="check">Delivery states are persisted and auditable.</div>
+</div>
+</section>
+
+<section class="section" id="delivery">
+<h2>5. Scheduling & Reliability Design</h2><span class="status">✓ DESIGNED</span>
+<p>Scheduling must create logical communication jobs; infrastructure executes them. A queued task is never treated as proof that a message was sent.</p>
+<table><tr><th>Concern</th><th>Decision</th></tr>
+<tr><td>Time window</td><td>Start time + end time + interval + timezone.</td></tr>
+<tr><td>Execution</td><td>Cloud Tasks invokes an authenticated internal job endpoint.</td></tr>
+<tr><td>Freshness</td><td>Processor evaluates current work/worker/schedule state at execution time.</td></tr>
+<tr><td>Retry</td><td>Transient errors retry; permanent errors become failed.</td></tr>
+<tr><td>Duplicate protection</td><td>Database-backed logical job/message idempotency.</td></tr>
+<tr><td>Cancellation</td><td>Inactive/changed schedules invalidate obsolete jobs.</td></tr>
+<tr><td>Rate limits</td><td>Queue/task configuration plus provider-aware dispatch controls.</td></tr>
+<tr><td>Timezone</td><td>Store timezone explicitly; persist timestamps in UTC.</td></tr>
+</table>
+</section>
+
+<section class="section" id="security">
+<h2>6. Security, Privacy & Access</h2><span class="status">✓ BASELINE DEFINED</span>
+<div class="checklist">
+<div class="check">Authentication is required for protected APIs.</div>
+<div class="check">Authorization and tenant isolation apply to every resource.</div>
+<div class="check">Least-privilege service accounts are planned.</div>
+<div class="check">Secrets are never committed to source control.</div>
+<div class="check">Provider webhook signatures are validated.</div>
+<div class="check">Phone/contact data is protected by access controls.</div>
+<div class="check">Audit logging has an initial administrator-lifecycle slice; communication and broader business mutations remain scheduled work.</div>
+<div class="check">API rate limiting and abuse controls are planned.</div>
+<div class="check">HTTPS is mandatory outside local development.</div>
+<div class="check">Production database backups and restore testing are required.</div>
+</div>
+</section>
+
+<section class="section" id="api">
+<h2>7. API & Client Contract</h2><span class="status">✓ DEFINED</span>
+<table><tr><th>Standard</th><th>Decision</th></tr>
+<tr><td>Protocol</td><td>HTTPS REST/JSON.</td></tr>
+<tr><td>Versioning</td><td><code>/api/v1</code> from the beginning.</td></tr>
+<tr><td>Schema</td><td>OpenAPI generated from the FastAPI application.</td></tr>
+<tr><td>Validation</td><td>Pydantic request/response schemas.</td></tr>
+<tr><td>Errors</td><td>Consistent machine-readable error envelope.</td></tr>
+<tr><td>Pagination</td><td>Standardized for list endpoints.</td></tr>
+<tr><td>Filtering</td><td>Project, department, worker, status, date, message state where relevant.</td></tr>
+<tr><td>Idempotency</td><td>Required for critical mutation/message operations.</td></tr>
+<tr><td>Mobile readiness</td><td>No web-only business logic; clients use the same API contract.</td></tr>
+</table>
+</section>
+
+<section class="section" id="local-dev">
+<h2>8. Local Development Strategy</h2><span class="status">✓ DONE</span>
+<p>Docker is used from the beginning to reduce environment drift, but cloud deployment is intentionally deferred to the final delivery stage.</p>
+<div class="flow">
+<div class="node">Developer</div><span class="arrow">→</span><div class="node"><code>docker compose up</code></div><span class="arrow">→</span><div class="node">FastAPI</div><span class="arrow">+</span><div class="node">PostgreSQL</div>
+</div>
+<ul>
+<li>Use environment-specific configuration files without committing secrets.</li>
+<li>Run migrations and tests inside the containerized development workflow.</li>
+<li>Use mocked/local adapters for external messaging where appropriate.</li>
+<li>Keep the production image build reproducible from the same Dockerfile family.</li>
+<li>Do not make developers depend on a deployed cloud environment for normal feature development.</li>
+</ul>
+</section>
+
+<section class="section" id="business-flow">
+<h2>9. End-to-End Business Flow</h2><span class="status">✓ DESIGNED</span>
+<div class="flow">
+<div class="node">Admin Login</div><span class="arrow">→</span><div class="node">Project</div><span class="arrow">→</span><div class="node">Department</div><span class="arrow">→</span><div class="node">Worker + Primary Contact</div>
+</div>
+<div class="flow">
+<div class="node">Work Items</div><span class="arrow">→</span><div class="node">Template</div><span class="arrow">→</span><div class="node">Schedule</div><span class="arrow">→</span><div class="node">Logical Job</div>
+</div>
+<div class="flow">
+<div class="node">Cloud Task</div><span class="arrow">→</span><div class="node">Validate Current State</div><span class="arrow">→</span><div class="node">Render Message</div><span class="arrow">→</span><div class="node">WhatsApp</div>
+</div>
+<div class="flow">
+<div class="node">Provider Response/Webhook</div><span class="arrow">→</span><div class="node">Delivery State</div><span class="arrow">→</span><div class="node">Message History</div><span class="arrow">→</span><div class="node">Admin Visibility</div>
+</div>
+</section>
+
+<section class="section" id="backlog">
+<h2>10. Development Backlog Structure</h2><span class="status">✓ DEFINED</span>
+<table><tr><th>Stage</th><th>Outcome</th></tr>
+<tr><td>1. Foundation</td><td>Architecture, repository, Docker, FastAPI, PostgreSQL, SQLAlchemy, Alembic, quality tooling.</td></tr>
+<tr><td>2. Identity & Core Data</td><td>JWT auth, users, admin-only authorization, organizations, projects, departments, workers and primary contacts.</td></tr>
+<tr><td>3. Work & Messaging Domain</td><td>Work items, statuses, templates, message lifecycle and channel abstraction.</td></tr>
+<tr><td>4. WhatsApp</td><td>Provider integration, templates, sending, webhooks, delivery and failure handling.</td></tr>
+<tr><td>5. Scheduling</td><td>Schedules, logical jobs, Cloud Tasks integration, retries, rate limits and duplicate protection.</td></tr>
+<tr><td>6. Web Application</td><td>Complete Next.js administrative experience using only public APIs.</td></tr>
+<tr><td>7. Quality</td><td>Unit, integration, E2E, security, failure and load testing.</td></tr>
+<tr><td>8. DevOps & Go-Live</td><td>GCP, Cloud Run, Cloud SQL, Cloud Tasks, secrets, CI/CD, monitoring, backups and production launch.</td></tr>
+</table>
+</section>
+
+<section class="section" id="open">
+<h2>11. Decisions Explicitly Deferred</h2><span class="status" style="color:var(--warn);background:var(--warnbg)">DEFERRED BY DESIGN</span>
+<table><tr><th>Decision</th><th>When to revisit</th></tr>
+<tr><td>Fine-grained RBAC tables (roles/permissions matrix)</td><td>When non-admin access policies are required in production.</td></tr>
+<tr><td>SMS provider</td><td>When SMS is approved as a delivery channel.</td></tr>
+<tr><td>Two-way communication</td><td>When worker responses become a product requirement.</td></tr>
+<tr><td>Mobile framework</td><td>When Android/iOS development is approved; backend remains unchanged.</td></tr>
+<tr><td>Pub/Sub</td><td>When multiple independent event consumers require asynchronous fan-out.</td></tr>
+<tr><td>Redis</td><td>Only when measurable caching, locking, or rate-limiting needs justify it.</td></tr>
+<tr><td>Microservices</td><td>Only when independent scaling/deployment/ownership boundaries emerge.</td></tr>
+<tr><td>Kubernetes</td><td>Not justified by current workload; reconsider only with a concrete platform requirement.</td></tr>
+</table>
+</section>
+
+<section class="section" id="exit">
+<h2>12. Pre-Development Exit Criteria (Historical Baseline)</h2>
+<span class="status">✓ ALL PRE-DEVELOPMENT ITEMS MARKED DONE</span>
+<p>The project is considered ready to enter implementation when the following are accepted by the product/technical owner.</p>
+<div class="checklist">
+<div class="check">MVP scope is frozen.</div>
+<div class="check">Future SMS/mobile/two-way requirements have explicit boundaries.</div>
+<div class="check">Domain model and business relationships are agreed.</div>
+<div class="check">Core business rules are documented.</div>
+<div class="check">API-first architecture is approved.</div>
+<div class="check">Technology stack is finalized.</div>
+<div class="check">Messaging abstraction is finalized.</div>
+<div class="check">Scheduling/retry/idempotency strategy is finalized.</div>
+<div class="check">Security and tenant-isolation principles are defined.</div>
+<div class="check">API versioning and contract standards are defined.</div>
+<div class="check">Docker-based local development is defined.</div>
+<div class="check">Development/testing strategy is defined.</div>
+<div class="check">End-to-end business flow is understood.</div>
+<div class="check">Delivery phases and backlog are established.</div>
+<div class="check">Cloud/DevOps work is deliberately deferred to final stage.</div>
+<div class="check">Production go-live criteria are defined.</div>
+</div>
+<div class="callout"><b>BASELINE STATUS — PRE-DEVELOPMENT: ACCEPTED.</b><br>
+Implementation is underway. Any new requirement discovered during development should be recorded as a decision/change rather than silently changing the architecture or MVP scope.</div>
+</section>
+
+
+<section class="section" id="workitems">
+<h2>13. Complete End-to-End Work Items</h2>
+<span class="status">✓ IMPLEMENTATION IN PROGRESS</span>
+<p>This is the implementation backlog derived from the approved pre-development decisions. WI-1.1 through WI-1.8, WI-2.1 through WI-2.5, and WI-3.1 through WI-3.6 are delivered in the backend; WI-4.1 is now active. Each work item remains outcome-oriented and is completed only after code, tests and required migrations are validated.</p>
+<div class="callout"><b>Step-by-step execution rule for every WI:</b>
+<ol>
+<li>Confirm scope and dependencies for the WI and mark the intended status transition.</li>
+<li>Implement schema/domain/API changes in small slices with tenant and authorization safety.</li>
+<li>Add or update tests for success paths, failure paths and cross-tenant protections.</li>
+<li>Run quality gates (lint, type checks, tests) and record results against the WI.</li>
+<li>Update docs and tracker text to reflect actual behavior, not planned behavior.</li>
+<li>Commit only when acceptance criteria are satisfied end-to-end.</li>
+</ol>
+</div>
+
+<h3>Stage 1 — Architecture & Development Foundation</h3>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-1.1</div><div class="title">Finalize Domain Architecture</div></div><span class="status">✓ DONE</span></div>
+<p>Define the bounded modules and relationships for Organization, User, Project, Department, Worker, Contact Point, Work Item, Schedule, Communication Job, Message, Delivery, Template, Audit Log and future Conversation. Establish which concepts are domain entities, application services, repositories and infrastructure adapters.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> module boundaries are explicit in code structure; domain rules remain outside transport/infrastructure routes; new features continue using the same layering contract without boundary regressions. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> module boundaries are explicit in code structure. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> domain rules remain outside transport/infrastructure routes. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> new features continue using the same layering contract without boundary regressions. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-1.2</div><div class="title">Define API Architecture & Standards</div></div><span class="status">✓ DONE</span></div>
+<p>Define REST resource naming, <code>/api/v1</code> versioning, HTTP semantics, pagination, filtering, sorting, validation errors, authorization errors, idempotency, correlation IDs and OpenAPI conventions. The contract must be suitable for both the web application and future mobile clients.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> all shipped endpoints use <code>/api/v1</code> conventions; error envelopes and validation responses are consistent; pagination and list semantics are stable and test-covered. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> all shipped endpoints use <code>/api/v1</code> conventions. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> error envelopes and validation responses are consistent. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> pagination and list semantics are stable and test-covered. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-1.3</div><div class="title">Create FastAPI Backend Structure</div></div><span class="status">✓ DONE</span></div>
+<p>Create the production-oriented Python project structure with clear separation between API/interface, application services, domain logic and infrastructure. Configure dependency injection, settings management, database lifecycle handling and a consistent exception strategy.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> application boots with dependency wiring intact; health endpoint and route registration are stable; new modules integrate through existing DI/factory patterns. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> application boots with dependency wiring intact. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> health endpoint and route registration are stable. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> new modules integrate through existing DI/factory patterns. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-1.4</div><div class="title">Configure PostgreSQL & SQLAlchemy</div></div><span class="status">✓ DONE</span></div>
+<p>Configure PostgreSQL as the transactional source of truth and SQLAlchemy 2.x for explicit relational modeling and transaction handling. Establish connection pooling, session lifecycle, repository conventions and transaction boundaries.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> PostgreSQL + SQLAlchemy repositories persist and query tenant-scoped entities correctly; relational constraints enforce ownership paths; runtime behavior is validated by passing integration-style tests. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> PostgreSQL + SQLAlchemy repositories persist and query tenant-scoped entities correctly. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> relational constraints enforce ownership paths. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> runtime behavior is validated by passing integration-style tests. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-1.5</div><div class="title">Configure Alembic Migrations</div></div><span class="status">✓ DONE</span></div>
+<p>Introduce versioned schema migrations, migration generation/review conventions and a safe local workflow. Migrations must be deterministic and suitable for later staging/production execution.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> Alembic history is linear and reviewable; each schema change ships with a migration; latest Stage 3 schema additions (assignment, primary contact, consent fields) are versioned. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> Alembic history is linear and reviewable. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> each schema change ships with a migration. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> latest Stage 3 schema additions (assignment, primary contact, consent fields) are versioned. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-1.6</div><div class="title">Containerize Local Development</div></div><span class="status">✓ DONE</span></div>
+<p>Create Docker images and Docker Compose configuration for the backend, PostgreSQL and required local supporting services. The local workflow should minimize host-specific dependencies and mirror production runtime assumptions without requiring cloud infrastructure.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> containerized local stack starts with documented commands; database boot + migration path is reproducible; onboarding flow does not require hidden host-specific steps. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> containerized local stack starts with documented commands. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> database boot + migration path is reproducible. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> onboarding flow does not require hidden host-specific steps. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-1.7</div><div class="title">Establish Code Quality & Testing Baseline</div></div><span class="status">✓ DONE</span></div>
+<p>Configure Ruff, formatting, type checking, pytest, pre-commit hooks and test conventions. Establish rules for unit tests, integration tests, fixtures, database isolation and external-provider mocking.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> quality commands are documented and runnable; automated test suite protects delivered behavior; feature slices ship with tests and reproducible validation evidence. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> quality commands are documented and runnable. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> automated test suite protects delivered behavior. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> feature slices ship with tests and reproducible validation evidence. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-1.8</div><div class="title">Implement Structured Logging & Correlation</div></div><span class="status">✓ DONE</span></div>
+<p>Define structured application logs and request/job correlation IDs so an administrator action can later be traced through API requests, scheduler jobs, message dispatch and provider responses. Avoid logging secrets or unnecessary personal data.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> request/operation tracing conventions exist; operational logs avoid sensitive payload leakage; troubleshooting paths are available for shipped workflows. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> request/operation tracing conventions exist. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> operational logs avoid sensitive payload leakage. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> troubleshooting paths are available for shipped workflows. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<h3>Stage 2 — Identity, Organization & Core Configuration</h3>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-2.1</div><div class="title">Implement User Authentication</div></div><span class="status">✓ DONE</span></div>
+<p>Implement JWT-based authentication for administrator users with short-lived access tokens and refresh-session rotation/revocation. Keep the authentication mechanism behind an application boundary so the API can later support enterprise identity providers and social login without rewriting business modules.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> login and refresh flows issue valid tokens; protected routes reject missing/invalid credentials; authenticated requests receive consistent identity and organization context. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> login and refresh flows issue valid tokens. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> protected routes reject missing/invalid credentials. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> authenticated requests receive consistent identity and organization context. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-2.2</div><div class="title">Implement User Management</div></div><span class="status">✓ DONE</span></div>
+<p>Provide APIs and domain logic for creating, activating, deactivating and updating administrator users. Prevent inactive users from accessing protected resources while retaining auditability.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> user create/read/update lifecycle is available for admins; inactive users are blocked from access; lifecycle and authorization outcomes are covered by tests. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> user create/read/update lifecycle is available for admins. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> inactive users are blocked from access. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> lifecycle and authorization outcomes are covered by tests. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-2.3</div><div class="title">Implement Organization/Tenant Model</div></div><span class="status">✓ DONE</span></div>
+<p>Create the organization as the top-level data isolation boundary. Every project, worker, message and operational record that belongs to a business must be attributable to exactly one organization unless explicitly modeled as global configuration.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> organization is enforced as tenant boundary in persistence and controllers; cross-tenant reads/writes are rejected; tenant isolation checks pass in automated tests. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> organization is enforced as tenant boundary in persistence and controllers. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> cross-tenant reads/writes are rejected. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> tenant isolation checks pass in automated tests. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-2.4</div><div class="title">Implement Admin-First Authorization</div></div><span class="status">✓ DONE</span></div>
+<p>Implement authorization checks for all protected operations with an admin-only role in MVP. Enforce organization/project data boundaries on every resource access and keep policy hooks ready for future RBAC expansion.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> admin-only policy is enforced for protected operations; unauthorized and out-of-scope access fails deterministically; tenant + role checks are verified with tests. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> admin-only policy is enforced for protected operations. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> unauthorized and out-of-scope access fails deterministically. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> tenant + role checks are verified with tests. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-2.5</div><div class="title">Implement Audit Logging</div></div><span class="status">✓ INITIAL SLICE DONE</span></div>
+<p>Initial implementation records administrator creation and updates with actor, organization, resource, action, timestamp and non-sensitive metadata. Broader project, primary-contact, work, schedule, template and communication events remain part of the later domain slices.</p>
+<div class="meta"><b>Acceptance criteria (completed initial slice):</b> admin create/update actions persist actor, target, action and metadata; sensitive values are excluded from audit payloads; audit insertion is append-oriented and queryable. <br><b>Current done:</b> Initial slice delivered and validated. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> admin create/update actions persist actor, target, action and metadata. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> sensitive values are excluded from audit payloads. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> audit insertion is append-oriented and queryable. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> Remaining broader audit event coverage is planned in later stages.</div></div>
+
+<h3>Stage 3 — Projects, Departments, Workers & Primary Contacts</h3>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-3.1</div><div class="title">Implement Project Management</div></div><span class="status">✓ DONE</span></div>
+<p>Implement project lifecycle management including creation, update, retrieval, listing, status and archival. The current slice adds protected tenant-scoped project APIs, date validation, duplicate-name protection, project audit hooks and readable archival.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> project CRUD and archival are tenant-scoped; duplicate naming and date-range validation are enforced; audit events are captured for mutations with passing tests. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> project CRUD and archival are tenant-scoped. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> duplicate naming and date-range validation are enforced. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> audit events are captured for mutations with passing tests. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-3.2</div><div class="title">Implement Department Management</div></div><span class="status">✓ DONE</span></div>
+<p>Allow departments to be configured per project. The delivered slice adds nested create/list APIs, organization-scoped retrieval and updates, explicit lifecycle status, per-project name uniqueness, audit hooks and archived-project protection.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> department APIs validate project ownership and lifecycle state; archived project/department mutation protections are enforced; mutation behavior is test-covered. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> department APIs validate project ownership and lifecycle state. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> archived project/department mutation protections are enforced. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> mutation behavior is test-covered. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-3.3</div><div class="title">Implement Worker Management</div></div><span class="status">✓ DONE</span></div>
+<p>Implement worker records with name, contact information, active state and department assignment. The current slice adds nested create/list APIs, organization-scoped retrieval and updates, E.164 phone validation, organization-wide phone uniqueness, audit hooks and archived-scope protection.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> worker create/read/update/deactivate flows are organization-scoped; phone uniqueness and E.164 validation are enforced; focused and full test suites pass. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> worker create/read/update/deactivate flows are organization-scoped. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> phone uniqueness and E.164 validation are enforced. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> focused and full test suites pass. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-3.4</div><div class="title">Implement Department Worker Assignment</div></div><span class="status">✓ DONE</span></div>
+<p>Support multiple workers in a department and define assignment lifecycle. Assignment add/remove flows now validate department and project ownership, reject inactive workers as assignment recipients and mark removed assignments as inactive for downstream communication safety.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> assignment add/remove endpoints operate within organization boundaries; invalid transitions (inactive or mismatched assignment) are rejected; audit metadata captures assignment changes. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> assignment add/remove endpoints operate within organization boundaries. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> invalid transitions (inactive or mismatched assignment) are rejected. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> audit metadata captures assignment changes. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-3.5</div><div class="title">Implement Primary Department Contact Rules</div></div><span class="status">✓ DONE</span></div>
+<p>Allow the administrator to select one active primary contact for each department. The delivered slice adds primary-contact persistence on departments, ownership and active-status validation for selected workers, and automatic primary-contact clearing when a department is archived.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> primary contact can only be a valid worker in the same department; inactive/invalid contact transitions are blocked; department archival clears primary contact safely. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> primary contact can only be a valid worker in the same department. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> inactive/invalid contact transitions are blocked. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> department archival clears primary contact safely. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-3.6</div><div class="title">Implement Contact & Consent Management</div></div><span class="status">✓ DONE</span></div>
+<p>Normalize phone numbers and store channel-specific contact points and consent/opt-out state. The delivered slice enforces E.164 normalization at the API boundary and rejects inactive or opted-out recipients in assignment and primary-contact workflows.</p>
+<div class="meta"><b>Acceptance criteria (completed):</b> phone input is normalized to E.164 at request boundary; consent/channel state is persisted per worker; inactive or opted-out recipients are blocked from recipient workflows. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> phone input is normalized to E.164 at request boundary. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> consent/channel state is persisted per worker. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> inactive or opted-out recipients are blocked from recipient workflows. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+
+<h3>Stage 4 — Work Management</h3>
+<!-- WI-4.x items are intentionally not marked DONE yet because implementation has not started in backend code. -->
+<div class="workitem"><div class="wihead"><div><div class="id">WI-4.1</div><div class="title">Implement Work Item Model</div></div><span class="tag">Work</span></div>
+<p>Model the actual work that needs to be communicated: title, description, department, optional worker assignment, priority, due date, status, ordering and timestamps. Keep work data independent from message formatting.</p>
+<div class="meta"><b>Acceptance criteria:</b> work item schema, migration and API contracts are added; ownership across organization/project/department is enforced; create/list/get flows pass with validation and tenant-isolation tests. <br><b>Current done:</b> Scope definition and acceptance criteria are finalized for implementation start. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> work item schema, migration and API contracts are added. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> ownership across organization/project/department is enforced. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> create/list/get flows pass with validation and tenant-isolation tests.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-4.2</div><div class="title">Implement Work Item Lifecycle</div></div><span class="tag">Work</span></div>
+<p>Implement valid transitions between work statuses and prevent impossible state changes. Status transitions should be auditable and available to the communication renderer.</p>
+<div class="meta"><b>Acceptance criteria:</b> allowed transition matrix is explicit and enforced; invalid transitions return deterministic errors; valid transitions update state and emit auditable transition records. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> allowed transition matrix is explicit and enforced. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> invalid transitions return deterministic errors. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> valid transitions update state and emit auditable transition records.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-4.3</div><div class="title">Implement Work Status History</div></div><span class="tag">Audit</span></div>
+<p>Persist previous status, new status, actor, timestamp and optional reason for each transition. This supports operational investigation and future analytics.</p>
+<div class="meta"><b>Acceptance criteria:</b> history records include old/new status, actor and timestamp; records are append-only and queryable by work item; tests reconstruct timeline correctly under multiple updates. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> history records include old/new status, actor and timestamp. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> records are append-only and queryable by work item. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> tests reconstruct timeline correctly under multiple updates.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-4.4</div><div class="title">Implement Priority, Due Date & Overdue Detection</div></div><span class="tag">Work</span></div>
+<p>Add priority and deadline semantics and expose overdue/blocked work for the admin UI and message renderer. Do not duplicate business state in message records.</p>
+<div class="meta"><b>Acceptance criteria:</b> priority and due-date validation are enforced on write; overdue and priority filters are available through API queries; query behavior is verified by automated tests. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> priority and due-date validation are enforced on write. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> overdue and priority filters are available through API queries. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> query behavior is verified by automated tests.</div></div>
+
+<h3>Stage 5 — Templates & Messaging Domain</h3>
+<!-- WI-5.x items are intentionally not marked DONE yet; they remain planned backlog work. -->
+<div class="workitem"><div class="wihead"><div><div class="id">WI-5.1</div><div class="title">Define Channel-Independent Message Domain</div></div><span class="tag">Architecture</span></div>
+<p>Define logical message identity, intent, recipient, content, channel, provider reference and delivery state. The business domain must not depend on WhatsApp-specific request/response structures.</p>
+<div class="meta"><b>Acceptance criteria:</b> message entity fields capture provider-agnostic intent and lifecycle; domain model compiles without provider-specific payload types; initial tests cover create and state transitions independent of channel. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> message entity fields capture provider-agnostic intent and lifecycle. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> domain model compiles without provider-specific payload types. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> initial tests cover create and state transitions independent of channel.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-5.2</div><div class="title">Implement Message Templates</div></div><span class="tag">Messaging</span></div>
+<p>Allow admins to create reusable templates containing controlled variables such as project name, department name, date, primary contact name and relevant work status. Store template versions or equivalent history so changes remain auditable.</p>
+<div class="meta"><b>Acceptance criteria:</b> template CRUD and activation lifecycle are tenant-scoped; variable schema validation blocks unsafe placeholders; version or equivalent audit trail preserves template change history. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> template CRUD and activation lifecycle are tenant-scoped. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> variable schema validation blocks unsafe placeholders. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> version or equivalent audit trail preserves template change history.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-5.3</div><div class="title">Implement Template Rendering</div></div><span class="tag">Messaging</span></div>
+<p>Render the current project/work state into the administrator's template at execution time. Define missing-variable behavior and prevent arbitrary template execution or unsafe expressions.</p>
+<div class="meta"><b>Acceptance criteria:</b> rendering resolves allowed variables deterministically from domain state; missing or invalid variables fail with clear validation errors; unsafe expression execution paths are blocked. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> rendering resolves allowed variables deterministically from domain state. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> missing or invalid variables fail with clear validation errors. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> unsafe expression execution paths are blocked.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-5.4</div><div class="title">Implement Message Lifecycle & History</div></div><span class="tag">Messaging</span></div>
+<p>Track queued, processing, sent, delivered, failed, cancelled and provider-specific states. Preserve provider IDs and timestamps so administrators can understand exactly what happened.</p>
+<div class="meta"><b>Acceptance criteria:</b> lifecycle states are explicit and transition-safe; provider IDs and timestamps are persisted; history queries can reconstruct each logical message attempt from queue to terminal state. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> lifecycle states are explicit and transition-safe. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> provider IDs and timestamps are persisted. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> history queries can reconstruct each logical message attempt from queue to terminal state.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-5.5</div><div class="title">Implement Idempotency Model</div></div><span class="tag">Reliability</span></div>
+<p>Define deterministic identities for scheduled communication jobs and logical messages. Enforce uniqueness in the database so concurrent workers or task retries cannot send duplicate messages.</p>
+<div class="meta"><b>Acceptance criteria:</b> deterministic idempotency keys exist for jobs/messages; database uniqueness guarantees prevent duplicate logical sends; retry and concurrency tests prove idempotent behavior. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> deterministic idempotency keys exist for jobs/messages. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> database uniqueness guarantees prevent duplicate logical sends. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> retry and concurrency tests prove idempotent behavior.</div></div>
+
+<h3>Stage 6 — WhatsApp Provider Integration</h3>
+<!-- WI-6.x items are intentionally not marked DONE yet; provider integration is pending. -->
+<div class="workitem"><div class="wihead"><div><div class="id">WI-6.1</div><div class="title">Configure WhatsApp Business Platform</div></div><span class="tag">External Integration</span></div>
+<p>Configure the approved WhatsApp Business provider, business account, sender number, credentials, templates, webhook endpoint and required permissions. Keep provider configuration outside source code.</p>
+<div class="meta"><b>Acceptance criteria:</b> provider account, sender and credentials are configured via secure environment settings; connectivity/auth checks pass in controlled environment; no provider secrets are hardcoded in repository files. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> provider account, sender and credentials are configured via secure environment settings. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> connectivity/auth checks pass in controlled environment. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> no provider secrets are hardcoded in repository files.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-6.2</div><div class="title">Implement WhatsApp Channel Adapter</div></div><span class="tag">Provider</span></div>
+<p>Implement the provider-specific adapter that converts an internal outbound message into the WhatsApp API request and normalizes the provider response into application-level results.</p>
+<div class="meta"><b>Acceptance criteria:</b> adapter maps internal message intent to provider request contract; provider responses/errors are normalized to application results; domain/application layers remain provider-agnostic. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> adapter maps internal message intent to provider request contract. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> provider responses/errors are normalized to application results. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> domain/application layers remain provider-agnostic.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-6.3</div><div class="title">Implement WhatsApp Template Mapping</div></div><span class="tag">Provider</span></div>
+<p>Map internal template/message intents to approved WhatsApp templates and validate required parameters before dispatch. Provider template identifiers must not become business identifiers.</p>
+<div class="meta"><b>Acceptance criteria:</b> mapping table links internal template identity to approved provider templates; required variables are validated before dispatch; provider template IDs are stored as integration metadata, not business keys. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> mapping table links internal template identity to approved provider templates. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> required variables are validated before dispatch. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> provider template IDs are stored as integration metadata, not business keys.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-6.4</div><div class="title">Implement WhatsApp Webhooks</div></div><span class="tag">Webhook</span></div>
+<p>Receive provider events for delivery, failure and other supported states. Validate webhook authenticity, handle duplicate events safely and update internal delivery records idempotently.</p>
+<div class="meta"><b>Acceptance criteria:</b> webhook signature/auth checks reject invalid requests; duplicate/out-of-order events do not corrupt delivery state; matching message records update idempotently with auditable timestamps. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> webhook signature/auth checks reject invalid requests. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> duplicate/out-of-order events do not corrupt delivery state. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> matching message records update idempotently with auditable timestamps.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-6.5</div><div class="title">Implement Provider Failure Handling</div></div><span class="tag">Reliability</span></div>
+<p>Classify errors into transient and permanent categories. Apply retries only where useful, persist meaningful failure reasons and expose actionable status to administrators.</p>
+<div class="meta"><b>Acceptance criteria:</b> transient and permanent provider failures are classified deterministically; retry policy is bounded and observable; terminal failures persist actionable reason codes for administrators. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> transient and permanent provider failures are classified deterministically. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> retry policy is bounded and observable. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> terminal failures persist actionable reason codes for administrators.</div></div>
+
+<h3>Stage 7 — Scheduling & Communication Execution</h3>
+<!-- WI-7.x items are intentionally not marked DONE yet; scheduling execution layer is pending. -->
+<div class="workitem"><div class="wihead"><div><div class="id">WI-7.1</div><div class="title">Implement Schedule Model & APIs</div></div><span class="tag">Scheduling</span></div>
+<p>Implement schedule configuration for start time, end time, interval, timezone, active state, project/department scope and template selection. Validate impossible configurations before activation.</p>
+<div class="meta"><b>Acceptance criteria:</b> schedule schema and API endpoints support full window/interval/timezone config; invalid schedules are rejected with validation details; only authorized tenant admins can activate schedules. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> schedule schema and API endpoints support full window/interval/timezone config. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> invalid schedules are rejected with validation details. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> only authorized tenant admins can activate schedules.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-7.2</div><div class="title">Calculate Schedule Execution Times</div></div><span class="tag">Scheduling</span></div>
+<p>Calculate execution times within the configured daily window using the explicit project timezone. Store UTC timestamps for execution while retaining the configured timezone as business configuration.</p>
+<div class="meta"><b>Acceptance criteria:</b> scheduler computes next-run timestamps correctly across boundaries; timezone conversion is deterministic and persisted in UTC; unit tests cover boundary, daylight-shift and interval edge cases. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> scheduler computes next-run timestamps correctly across boundaries. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> timezone conversion is deterministic and persisted in UTC. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> unit tests cover boundary, daylight-shift and interval edge cases.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-7.3</div><div class="title">Implement Logical Communication Jobs</div></div><span class="tag">Scheduling</span></div>
+<p>Persist a logical job representing “communication that should happen” independently from the task queue. This separates business state from infrastructure execution and provides reliable auditability.</p>
+<div class="meta"><b>Acceptance criteria:</b> logical job records are persisted with deterministic identifiers and references; queue dispatch is decoupled from job state; job history is queryable even if queue operations fail or retry. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> logical job records are persisted with deterministic identifiers and references. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> queue dispatch is decoupled from job state. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> job history is queryable even if queue operations fail or retry.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-7.4</div><div class="title">Integrate Cloud Tasks</div></div><span class="tag">Infrastructure Adapter</span></div>
+<p>Introduce the Cloud Tasks adapter that schedules authenticated HTTP execution against the message processor. Configure retries, timeouts and queue-level rate controls. This integration belongs outside the scheduling domain.</p>
+<div class="meta"><b>Acceptance criteria:</b> adapter enqueues authenticated task requests with retry/timeout controls; queue failures do not break logical job consistency; adapter integration remains outside domain logic. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> adapter enqueues authenticated task requests with retry/timeout controls. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> queue failures do not break logical job consistency. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> adapter integration remains outside domain logic.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-7.5</div><div class="title">Implement Message Job Processor</div></div><span class="tag">Execution</span></div>
+<p>At execution time, re-check schedule status, project status, worker/primary-contact status, contact validity, consent and current work state. Render the message using fresh data and dispatch it through the selected channel adapter.</p>
+<div class="meta"><b>Acceptance criteria:</b> processor revalidates live state before send; stale/invalid jobs are suppressed with explicit reason; valid jobs render and dispatch exactly once through selected channel adapter. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> processor revalidates live state before send. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> stale/invalid jobs are suppressed with explicit reason. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> valid jobs render and dispatch exactly once through selected channel adapter.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-7.6</div><div class="title">Implement Retry, Rate Limit & Duplicate Protection</div></div><span class="tag">Reliability</span></div>
+<p>Combine provider-aware rate controls, retry classification, database idempotency and concurrency protection. The system must remain correct if a task is delivered twice, times out after sending, or is retried later.</p>
+<div class="meta"><b>Acceptance criteria:</b> retry policy is bounded by error class and attempt limits; rate limiting protects provider quotas under burst load; duplicate task delivery and concurrency tests prove idempotent send behavior. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> retry policy is bounded by error class and attempt limits. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> rate limiting protects provider quotas under burst load. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> duplicate task delivery and concurrency tests prove idempotent send behavior.</div></div>
+
+<h3>Stage 8 — Admin Web Application</h3>
+<!-- WI-8.x items are intentionally not marked DONE yet; frontend implementation is pending in workpulse-admin. -->
+<div class="workitem"><div class="wihead"><div><div class="id">WI-8.1</div><div class="title">Build Next.js Admin Foundation</div></div><span class="tag">Frontend</span></div>
+<p>Create the TypeScript-based admin application, routing, API client, authentication/session integration, shared UI primitives, error handling and loading states. The frontend must remain a client of the public API.</p>
+<div class="meta"><b>Acceptance criteria:</b> authenticated app shell and routing are operational; API client handles auth/session/error states consistently; business rules remain server-authoritative and are not duplicated in UI. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> authenticated app shell and routing are operational. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> API client handles auth/session/error states consistently. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> business rules remain server-authoritative and are not duplicated in UI.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-8.2</div><div class="title">Build Organization & Project Management</div></div><span class="tag">Frontend</span></div>
+<p>Provide screens for organization and project creation, editing, listing, filtering, details and archival. Show project state clearly and prevent actions that the backend would reject.</p>
+<div class="meta"><b>Acceptance criteria:</b> project CRUD/archival flows are complete in UI; validation and API errors are surfaced clearly; UI behavior matches backend constraints for status and date validation. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> project CRUD/archival flows are complete in UI. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> validation and API errors are surfaced clearly. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> UI behavior matches backend constraints for status and date validation.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-8.3</div><div class="title">Build Department & Worker Management</div></div><span class="tag">Frontend</span></div>
+<p>Provide department configuration, worker assignment, contact management and primary-contact selection. Surface validation issues such as missing primary contacts, invalid phone numbers and inactive workers.</p>
+<div class="meta"><b>Acceptance criteria:</b> department-worker-primary-contact flows are fully operable in UI; contact/consent/eligibility errors are visible and actionable; UI cannot create invalid recipient states blocked by backend. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> department-worker-primary-contact flows are fully operable in UI. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> contact/consent/eligibility errors are visible and actionable. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> UI cannot create invalid recipient states blocked by backend.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-8.4</div><div class="title">Build Work Management UI</div></div><span class="tag">Frontend</span></div>
+<p>Provide work-item creation, status changes, priority, due dates, assignment, filtering and history. Include department/project context so administrators can understand what will be communicated.</p>
+<div class="meta"><b>Acceptance criteria:</b> work-item create/update/status/priority flows are complete; filters and history views reflect backend state accurately; admins can manage work without manual API interaction. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> work-item create/update/status/priority flows are complete. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> filters and history views reflect backend state accurately. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> admins can manage work without manual API interaction.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-8.5</div><div class="title">Build Template & Schedule UI</div></div><span class="tag">Frontend</span></div>
+<p>Provide template creation, variable-aware preview, activation and schedule configuration including start/end time, interval and timezone. Display clear validation before activation.</p>
+<div class="meta"><b>Acceptance criteria:</b> template authoring + preview and schedule setup are end-to-end functional; pre-activation validation blocks invalid config; persisted UI state matches backend contracts. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> template authoring + preview and schedule setup are end-to-end functional. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> pre-activation validation blocks invalid config. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> persisted UI state matches backend contracts.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-8.6</div><div class="title">Build Communication Dashboard & History</div></div><span class="tag">Frontend</span></div>
+<p>Display scheduled jobs, message states, recipients, delivery timestamps, failures and relevant project/department/work context. Provide enough operational detail to diagnose a missed or failed communication.</p>
+<div class="meta"><b>Acceptance criteria:</b> dashboard shows job/message lifecycle with recipient and context linkage; failure states include actionable diagnostics; operators can trace schedule-to-delivery outcomes without database access. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> dashboard shows job/message lifecycle with recipient and context linkage. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> failure states include actionable diagnostics. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> operators can trace schedule-to-delivery outcomes without database access.</div></div>
+
+<h3>Stage 9 — Testing, Security & Production Hardening</h3>
+<!-- WI-9.x items are intentionally not marked DONE yet; production hardening backlog remains open. -->
+<div class="workitem"><div class="wihead"><div><div class="id">WI-9.1</div><div class="title">Implement Unit Test Suite</div></div><span class="tag">Testing</span></div>
+<p>Cover domain rules, status transitions, template rendering, scheduling calculations, recipient validation, idempotency and application services with fast deterministic tests.</p>
+<div class="meta"><b>Acceptance criteria:</b> unit tests cover domain invariants and transition rules; edge cases and failure branches are explicitly tested; tests run deterministically and quickly in local and CI workflows. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> unit tests cover domain invariants and transition rules. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> edge cases and failure branches are explicitly tested. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> tests run deterministically and quickly in local and CI workflows.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-9.2</div><div class="title">Implement API Integration Tests</div></div><span class="tag">Testing</span></div>
+<p>Exercise authentication, authorization, database transactions, CRUD operations, filtering, pagination, validation and error contracts against a realistic test database.</p>
+<div class="meta"><b>Acceptance criteria:</b> integration tests cover auth, tenant boundary and mutation flows through HTTP layer; response contracts and error schemas are asserted; database side effects are validated per operation. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> integration tests cover auth, tenant boundary and mutation flows through HTTP layer. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> response contracts and error schemas are asserted. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> database side effects are validated per operation.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-9.3</div><div class="title">Implement Messaging & Webhook Tests</div></div><span class="tag">Testing</span></div>
+<p>Test successful provider calls, transient failures, permanent failures, retries, duplicate webhooks, invalid signatures, out-of-order events and idempotent status updates.</p>
+<div class="meta"><b>Acceptance criteria:</b> provider send success/failure paths are covered with mocks or fixtures; webhook signature, dedupe and ordering edge cases are test-covered; idempotent status update guarantees are validated. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> provider send success/failure paths are covered with mocks or fixtures. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> webhook signature, dedupe and ordering edge cases are test-covered. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> idempotent status update guarantees are validated.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-9.4</div><div class="title">Implement End-to-End Test</div></div><span class="tag">E2E</span></div>
+<p>Validate the complete critical path: create project → department → worker/primary contact → work → template → schedule → job → message provider → delivery event → admin history.</p>
+<div class="meta"><b>Acceptance criteria:</b> full admin-to-worker flow passes in integration environment; expected user-visible state updates are verified after each major step; failure capture includes reproducible traces for diagnosis. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> full admin-to-worker flow passes in integration environment. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> expected user-visible state updates are verified after each major step. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> failure capture includes reproducible traces for diagnosis.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-9.5</div><div class="title">Perform Security Hardening</div></div><span class="tag">Security</span></div>
+<p>Review authentication, tenant isolation, authorization, input validation, webhook security, secret handling, dependency vulnerabilities, sensitive logging and API abuse controls.</p>
+<div class="meta"><b>Acceptance criteria:</b> critical auth/tenant/secrets/logging findings are remediated; dependency and config risk checks are executed and documented; agreed security checklist passes with no unresolved critical items. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> critical auth/tenant/secrets/logging findings are remediated. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> dependency and config risk checks are executed and documented. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> agreed security checklist passes with no unresolved critical items.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-9.6</div><div class="title">Perform Load & Failure Testing</div></div><span class="tag">Reliability</span></div>
+<p>Measure API/database behavior, scheduler throughput, task concurrency and provider failure behavior against expected MVP load. Verify that retries and queue backlog do not create duplicate or uncontrolled communication.</p>
+<div class="meta"><b>Acceptance criteria:</b> load profiles and failure scenarios are executed against representative environments; throughput/latency/error budgets are documented; operational limits and mitigation playbooks are published. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> load profiles and failure scenarios are executed against representative environments. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> throughput/latency/error budgets are documented. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> operational limits and mitigation playbooks are published.</div></div>
+
+<h3>Stage 10 — DevOps, Cloud & Go-Live</h3>
+<!-- WI-10.x items are intentionally not marked DONE yet; cloud/deployment work is deferred to final stage. -->
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.1</div><div class="title">Create GCP Environments</div></div><span class="tag">DevOps</span></div>
+<p>Create separate development/staging/production environments and enable only required managed services. Establish naming, billing, IAM ownership and environment configuration standards.</p>
+<div class="meta"><b>Acceptance criteria:</b> dev/staging/prod projects are isolated with controlled IAM boundaries; required services are enabled with least privilege; billing, naming and config standards are documented and enforced. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> dev/staging/prod projects are isolated with controlled IAM boundaries. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> required services are enabled with least privilege. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> billing, naming and config standards are documented and enforced.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.2</div><div class="title">Configure Cloud SQL</div></div><span class="tag">DevOps</span></div>
+<p>Provision production PostgreSQL with appropriate sizing, connectivity, encryption, backups and operational settings. Validate application migrations and connection behavior in staging first.</p>
+<div class="meta"><b>Acceptance criteria:</b> Cloud SQL instances are provisioned with secure connectivity and encryption; backup/restore procedures are tested; migration and connection behavior are validated in staging before prod cutover. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> Cloud SQL instances are provisioned with secure connectivity and encryption. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> backup/restore procedures are tested. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> migration and connection behavior are validated in staging before prod cutover.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.3</div><div class="title">Deploy Cloud Run Services</div></div><span class="tag">DevOps</span></div>
+<p>Deploy the containerized backend using Cloud Run with production configuration, health checks, scaling settings, service accounts and secure connectivity to managed dependencies.</p>
+<div class="meta"><b>Acceptance criteria:</b> versioned immutable image deployment is automated; runtime config, health probes and scaling are environment-correct; service accounts and network connectivity follow least-privilege policy. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> versioned immutable image deployment is automated. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> runtime config, health probes and scaling are environment-correct. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> service accounts and network connectivity follow least-privilege policy.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.4</div><div class="title">Configure Production Cloud Tasks</div></div><span class="tag">DevOps</span></div>
+<p>Create authenticated production queues with retry, timeout, rate and failure policies. Verify that task requests can reach only the intended internal execution endpoint.</p>
+<div class="meta"><b>Acceptance criteria:</b> production queues are configured with authenticated invocation and bounded retries; queue policies align with throughput and reliability targets; endpoint access is restricted to trusted task identities. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> production queues are configured with authenticated invocation and bounded retries. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> queue policies align with throughput and reliability targets. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> endpoint access is restricted to trusted task identities.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.5</div><div class="title">Configure Secrets & IAM</div></div><span class="tag">Security</span></div>
+<p>Move database, provider and application secrets into Secret Manager and assign least-privilege service identities. Remove production secrets from images, source code and plain deployment configuration.</p>
+<div class="meta"><b>Acceptance criteria:</b> all production credentials are stored and rotated through managed secret tooling; service accounts hold only required permissions; secret exposure in code/images/config is eliminated. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> all production credentials are stored and rotated through managed secret tooling. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> service accounts hold only required permissions. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> secret exposure in code/images/config is eliminated.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.6</div><div class="title">Implement CI/CD Pipeline</div></div><span class="tag">DevOps</span></div>
+<p>Automate linting, tests, security checks, Docker image build, registry publishing and controlled deployment promotion. Production deployment should use an immutable tested artifact rather than rebuilding code.</p>
+<div class="meta"><b>Acceptance criteria:</b> CI gates enforce lint/type/test/security checks; artifact build and promotion flow is repeatable and immutable; deployment approvals and rollback paths are documented and exercised. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> CI gates enforce lint/type/test/security checks. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> artifact build and promotion flow is repeatable and immutable. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> deployment approvals and rollback paths are documented and exercised.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.7</div><div class="title">Configure Monitoring, Alerts & Backups</div></div><span class="tag">Operations</span></div>
+<p>Monitor API health, error rates, task failures, provider failures, database health and unusual messaging behavior. Configure backups, retention and restore procedures and test recovery before launch.</p>
+<div class="meta"><b>Acceptance criteria:</b> dashboards and alerts cover API, queue, provider and database SLO indicators; backup/retention policies are active; restore drills confirm recovery objectives and runbook accuracy. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> dashboards and alerts cover API, queue, provider and database SLO indicators. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> backup/retention policies are active. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> restore drills confirm recovery objectives and runbook accuracy.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.8</div><div class="title">Production Go-Live</div></div><span class="tag">Release</span></div>
+<p>Perform final staging acceptance, configure production WhatsApp integration, deploy the approved release, validate real outbound messaging and webhooks, monitor initial traffic and complete operational handover.</p>
+<div class="meta"><b>Acceptance criteria:</b> final acceptance checklist passes in staging and production readiness review; initial production messaging and webhook loops validate successfully; on-call, rollback and incident runbooks are confirmed at handover. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> final acceptance checklist passes in staging and production readiness review. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> initial production messaging and webhook loops validate successfully. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> on-call, rollback and incident runbooks are confirmed at handover.</div></div>
+
+<h3>Future Stage — Two-Way & Additional Channels</h3>
+<div class="workitem"><div class="wihead"><div><div class="id">FUT-1</div><div class="title">Implement SMS Channel Adapter</div></div><span class="tag">Future</span></div>
+<p>Add an SMS provider implementing the same application-level messaging contract. Channel-specific delivery capabilities and template limitations must be handled by the adapter rather than the project/work domain.</p>
+<div class="meta"><b>Acceptance criteria:</b> SMS adapter follows the same internal message contract as WhatsApp; provider-specific constraints are isolated in adapter logic; channel selection remains configurable without domain rewrites. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> SMS adapter follows the same internal message contract as WhatsApp. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> provider-specific constraints are isolated in adapter logic. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> channel selection remains configurable without domain rewrites.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">FUT-2</div><div class="title">Implement Inbound Message & Conversation Model</div></div><span class="tag">Future</span></div>
+<p>Introduce canonical inbound messages and conversations that can associate worker responses with projects, departments and work items. This becomes the foundation for two-way communication across WhatsApp or SMS.</p>
+<div class="meta"><b>Acceptance criteria:</b> inbound message entity and conversation linkage are modeled with tenant-safe ownership; provider webhooks map to canonical inbound records; response-to-workflow associations are queryable and auditable. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> inbound message entity and conversation linkage are modeled with tenant-safe ownership. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> provider webhooks map to canonical inbound records. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> response-to-workflow associations are queryable and auditable.</div></div>
+
+<div class="workitem"><div class="wihead"><div><div class="id">FUT-3</div><div class="title">Implement Worker-Driven Work Updates</div></div><span class="tag">Future</span></div>
+<p>Allow workers to respond to communication and eventually update work status through controlled commands, workflows or conversational interactions. Any automated update must remain auditable.</p>
+<div class="meta"><b>Acceptance criteria:</b> worker-driven commands map to validated workflow actions only; authorization and anti-abuse checks guard update endpoints; status changes include full actor/channel audit trails. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> worker-driven commands map to validated workflow actions only. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> authorization and anti-abuse checks guard update endpoints. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> status changes include full actor/channel audit trails.</div></div>
+</section>
+<section class="section" id="guardrails">
+<h2>14. Architecture Guardrails for the Team</h2>
+<ul>
+<li><b>API is the product boundary.</b> Web and future mobile clients must consume the same API.</li>
+<li><b>Domain is provider-agnostic.</b> No WhatsApp/GCP-specific business rules in the core.</li>
+<li><b>Modular monolith first.</b> Extract services only when a real operational boundary appears.</li>
+<li><b>Database is the source of truth.</b> Queues/tasks are execution mechanisms, not business state.</li>
+<li><b>Every message is traceable.</b> Project → schedule → job → message → provider → delivery.</li>
+<li><b>Every retry must be safe.</b> Idempotency is a correctness requirement, not an optimization.</li>
+<li><b>Design for change, don't implement speculative features.</b> SMS/mobile/two-way have extension points but remain outside MVP.</li>
+<li><b>Docker early, cloud late.</b> Developers use containers from the first implementation; deployment infrastructure comes last.</li>
+</ul>
+</section>
+
+<footer>Workforce Messaging Automation Platform · Implementation Progress · Architecture baseline v1.1</footer>
+</main>
+</body>
+</html>
+
+
+
+

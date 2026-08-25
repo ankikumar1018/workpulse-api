@@ -12,9 +12,10 @@ RUN pip install --no-cache-dir uv
 WORKDIR /app
 
 # Copy pyproject.toml and lock file (when available)
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock README.md ./
 
 # Build the virtual environment
+RUN ls -la
 RUN uv sync --frozen --no-dev --compile-bytecode
 
 # Production stage

@@ -12,12 +12,14 @@ from app.controllers.auth import AuthController
 from app.controllers.department import DepartmentController
 from app.controllers.organization import OrganizationController
 from app.controllers.project import ProjectController
+from app.controllers.work_item import WorkItemController
 from app.controllers.worker import WorkerController
 from app.repositories.audit import AuditRepository
 from app.repositories.auth import AuthRepository
 from app.repositories.department import DepartmentRepository
 from app.repositories.organization import OrganizationRepository
 from app.repositories.project import ProjectRepository
+from app.repositories.work_item import WorkItemRepository
 from app.repositories.worker import WorkerRepository
 
 
@@ -58,11 +60,12 @@ class Factory:
         audit_repository = AuditRepository(session)
         return WorkerController(repository, audit_repository)
 
-    # TODO: Add more controller getters as they are created
-    # @staticmethod
-    # def get_project_controller(session: AsyncSession) -> ProjectController:
-    #     repository = ProjectRepository(session)
-    #     return ProjectController(repository)
+    @staticmethod
+    def get_work_item_controller(session: AsyncSession) -> WorkItemController:
+        """Get work item controller with injected repositories."""
+        repository = WorkItemRepository(session)
+        audit_repository = AuditRepository(session)
+        return WorkItemController(repository, audit_repository)
 
 
 __all__ = ["Factory"]

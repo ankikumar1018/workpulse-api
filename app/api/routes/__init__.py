@@ -5,6 +5,7 @@ from app.api.routes.departments import router as departments_router
 from app.api.routes.organizations import router as organizations_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.users import router as users_router
+from app.api.routes.work_items import router as work_items_router
 from app.api.routes.workers import router as workers_router
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "organizations_router",
     "projects_router",
     "users_router",
+    "work_items_router",
     "workers_router",
 ]

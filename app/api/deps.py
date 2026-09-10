@@ -12,6 +12,7 @@ from app.controllers.auth import AuthController
 from app.controllers.department import DepartmentController
 from app.controllers.organization import OrganizationController
 from app.controllers.project import ProjectController
+from app.controllers.work_item import WorkItemController
 from app.controllers.worker import WorkerController
 from core.database import get_session
 from core.factory import Factory
@@ -52,12 +53,20 @@ async def get_worker_controller(
     return Factory.get_worker_controller(session)
 
 
+async def get_work_item_controller(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> WorkItemController:
+    """Dependency to get work item controller with injected session."""
+    return Factory.get_work_item_controller(session)
+
+
 # Type aliases for cleaner endpoint signatures
 OrganizationCtrl = Annotated[OrganizationController, Depends(get_organization_controller)]
 AuthCtrl = Annotated[AuthController, Depends(get_auth_controller)]
 ProjectCtrl = Annotated[ProjectController, Depends(get_project_controller)]
 DepartmentCtrl = Annotated[DepartmentController, Depends(get_department_controller)]
 WorkerCtrl = Annotated[WorkerController, Depends(get_worker_controller)]
+WorkItemCtrl = Annotated[WorkItemController, Depends(get_work_item_controller)]
 
 __all__ = [
     "AuthCtrl",
@@ -65,11 +74,13 @@ __all__ = [
     "DepartmentCtrl",
     "OrganizationCtrl",
     "ProjectCtrl",
+    "WorkItemCtrl",
     "WorkerCtrl",
     "get_auth_controller",
     "get_department_controller",
     "get_organization_controller",
     "get_project_controller",
     "get_session",
+    "get_work_item_controller",
     "get_worker_controller",
 ]

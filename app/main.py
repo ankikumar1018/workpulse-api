@@ -18,6 +18,7 @@ from app.api.routes import (
     organizations_router,
     projects_router,
     users_router,
+    work_items_router,
     workers_router,
 )
 from app.api.utils import camelize, generate_request_id, make_success_response
@@ -139,6 +140,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router)
     app.include_router(departments_router)
     app.include_router(workers_router)
+    app.include_router(work_items_router)
     app.include_router(users_router)
 
     return app

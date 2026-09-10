@@ -161,7 +161,7 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 </section>
 
 <section class="hero" id="decision">
-  <span class="badge">● IMPLEMENTATION IN PROGRESS · v1.1</span>
+  <span class="badge">● IMPLEMENTATION IN PROGRESS · v1.2</span>
   <h1>Workforce Messaging Automation Platform</h1>
   <p>Approved architecture and implementation tracker for the interior-design workforce communication platform. The backend foundation, JWT authentication, tenant isolation, admin authorization and initial audit trail are complete. The MVP remains one-way WhatsApp communication from administrators to primary department contacts, while the architecture stays ready for SMS, mobile clients and two-way communication.</p>
   <div class="flow">
@@ -177,7 +177,7 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 
 <section class="section" id="implementation-status">
 <h2>Current Implementation Status</h2><span class="status">✓ PHASE 4 IN PROGRESS</span>
-<p class="small">Last reconciled: 2026-08-23 · Backend baseline: commit <code>20abdf8</code></p>
+<p class="small">Last reconciled: 2026-09-10 · Work-item model and lifecycle transition slice implemented</p>
 <table><tr><th>Area</th><th>Status</th><th>Verified outcome</th></tr>
 <tr><td>Foundation and architecture</td><td><span class="done">Done</span></td><td>FastAPI, PostgreSQL, SQLAlchemy, Alembic, Docker workflow and quality tooling are established.</td></tr>
 <tr><td>Authentication</td><td><span class="done">Done</span></td><td>JWT access tokens, refresh rotation/revocation and hashed refresh-session storage are implemented.</td></tr>
@@ -185,10 +185,11 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <tr><td>Admin authorization</td><td><span class="done">Done</span></td><td>Protected operations require active users and admin role; the current database role, user status and token/organization consistency are checked at request time.</td></tr>
 <tr><td>Audit logging</td><td><span class="done">Initial slice done</span></td><td>Administrator creation and updates record actor, organization, resource, action and non-sensitive metadata.</td></tr>
 <tr><td>Stage 3 delivery</td><td><span class="done">Done</span></td><td>Projects, departments, workers, assignment lifecycle, primary-contact rules and consent-aware recipient validation are implemented and tested.</td></tr>
-<tr><td>Current active item</td><td><span class="tag">WI-4.1</span></td><td>Work item model and persistence are now active with strict project/department ownership boundaries.</td></tr>
-<tr><td>Next item</td><td><span class="tag">WI-4.2</span></td><td>Implement work item lifecycle transitions with explicit validation of valid status changes.</td></tr>
+<tr><td>Work item model</td><td><span class="done">Implemented</span></td><td>Work item create/list/get APIs now enforce project, department, worker and organization ownership boundaries, with priority and due-date contracts.</td></tr>
+<tr><td>Lifecycle transitions</td><td><span class="done">Implemented</span></td><td>Explicit status transition rules, terminal states, deterministic invalid-transition errors and audit hooks are implemented and covered by focused domain tests.</td></tr>
+<tr><td>Current active item</td><td><span class="tag">WI-4.3</span></td><td>Persist append-only work status history with actor, previous status, new status, timestamp and optional reason.</td></tr>
 </table>
-<div class="callout warning"><b>Validation note:</b> the focused and full backend test suites pass. Ruff and changed-file Black/mypy checks pass. Repository-wide Black/mypy findings and the isort configuration incompatibility are existing quality-tool issues tracked separately from the delivered feature changes.</div>
+<div class="callout warning"><b>Validation note:</b> the focused work-item tests pass (19 tests) and the full backend suite passes (70 tests). Repository-wide Ruff passes. Repository-wide Black still reports pre-existing formatting findings outside this slice; the editor also reports a Pylance environment diagnostic for <code>pydantic</code> even though the configured test interpreter imports it successfully.</div>
 </section>
 
 <section class="section" id="scope">
@@ -525,14 +526,13 @@ Implementation is underway. Any new requirement discovered during development sh
 <div class="meta"><b>Acceptance criteria (completed):</b> phone input is normalized to E.164 at request boundary; consent/channel state is persisted per worker; inactive or opted-out recipients are blocked from recipient workflows. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> phone input is normalized to E.164 at request boundary. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> consent/channel state is persisted per worker. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> inactive or opted-out recipients are blocked from recipient workflows. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
 
 <h3>Stage 4 — Work Management</h3>
-<!-- WI-4.x items are intentionally not marked DONE yet because implementation has not started in backend code. -->
-<div class="workitem"><div class="wihead"><div><div class="id">WI-4.1</div><div class="title">Implement Work Item Model</div></div><span class="tag">Work</span></div>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-4.1</div><div class="title">Implement Work Item Model</div></div><span class="status">✓ SLICE DONE</span></div>
 <p>Model the actual work that needs to be communicated: title, description, department, optional worker assignment, priority, due date, status, ordering and timestamps. Keep work data independent from message formatting.</p>
-<div class="meta"><b>Acceptance criteria:</b> work item schema, migration and API contracts are added; ownership across organization/project/department is enforced; create/list/get flows pass with validation and tenant-isolation tests. <br><b>Current done:</b> Scope definition and acceptance criteria are finalized for implementation start. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> work item schema, migration and API contracts are added. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> ownership across organization/project/department is enforced. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> create/list/get flows pass with validation and tenant-isolation tests.</div></div>
+<div class="meta"><b>Acceptance criteria:</b> work item schema, migration and API contracts are added; ownership across organization/project/department is enforced; create/list/get flows pass with validation and tenant-isolation tests. <br><b>Current done:</b> Work item persistence already existed in the Phase 1 schema; this slice adds the domain/API wiring, create/list/get contracts, strict project-department-worker ownership checks, priority validation and due-date support. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> schema and API contracts are available. <b>Step 1 Left:</b> broader HTTP integration coverage remains. <b>Step 2 Done:</b> ownership is enforced in the controller. <b>Step 2 Left:</b> broader cross-tenant API coverage remains. <b>Step 3 Done:</b> domain and full-suite validation pass. <b>Step 3 Left:</b> dedicated API acceptance tests remain.</div></div>
 
-<div class="workitem"><div class="wihead"><div><div class="id">WI-4.2</div><div class="title">Implement Work Item Lifecycle</div></div><span class="tag">Work</span></div>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-4.2</div><div class="title">Implement Work Item Lifecycle</div></div><span class="status">✓ SLICE DONE</span></div>
 <p>Implement valid transitions between work statuses and prevent impossible state changes. Status transitions should be auditable and available to the communication renderer.</p>
-<div class="meta"><b>Acceptance criteria:</b> allowed transition matrix is explicit and enforced; invalid transitions return deterministic errors; valid transitions update state and emit auditable transition records. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> allowed transition matrix is explicit and enforced. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> invalid transitions return deterministic errors. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> valid transitions update state and emit auditable transition records.</div></div>
+<div class="meta"><b>Acceptance criteria:</b> allowed transition matrix is explicit and enforced; invalid transitions return deterministic errors; valid transitions update state and emit auditable transition records. <br><b>Current done:</b> Domain transition rules, terminal-state protection, idempotent same-state updates, status endpoint wiring and audit recording are implemented. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> explicit transition matrix is implemented. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> invalid transitions return deterministic application errors. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> valid transitions update state and emit audit records. <b>Step 3 Left:</b> dedicated controller/API transition tests remain.</div></div>
 
 <div class="workitem"><div class="wihead"><div><div class="id">WI-4.3</div><div class="title">Implement Work Status History</div></div><span class="tag">Audit</span></div>
 <p>Persist previous status, new status, actor, timestamp and optional reason for each transition. This supports operational investigation and future analytics.</p>
@@ -725,7 +725,7 @@ Implementation is underway. Any new requirement discovered during development sh
 </ul>
 </section>
 
-<footer>Workforce Messaging Automation Platform · Implementation Progress · Architecture baseline v1.1</footer>
+<footer>Workforce Messaging Automation Platform · Implementation Progress · Architecture baseline v1.2</footer>
 </main>
 </body>
 </html>

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.organization import Organization
-from core.repository import BaseRepository
+from app.infrastructure.db.models import Organization
+from app.infrastructure.repository import BaseRepository
 
 
 class OrganizationRepository(BaseRepository[Organization]):

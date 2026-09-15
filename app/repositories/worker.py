@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.db.models import Worker
-from core.repository import BaseRepository
+from app.infrastructure.repository import BaseRepository
 
 
 class WorkerRepository(BaseRepository[Worker]):

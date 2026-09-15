@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import CurrentUser, OrganizationCtrl
+from app.api.dependencies import CurrentUser, OrganizationCtrl
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.schemas import (
     ListEnvelope,
@@ -17,7 +17,7 @@ from app.schemas import (
 )
 
 router = APIRouter(
-    prefix="/api/v1/organizations",
+    prefix="/organizations",
     tags=["Organizations"],
 )
 

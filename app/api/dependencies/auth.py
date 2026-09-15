@@ -1,4 +1,4 @@
-"""API dependency injection and authorization."""
+"""Authentication context resolved from the bearer token on each request."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import ForbiddenError, UnauthorizedError
 from app.api.security import decode_access_token
+from app.api.versioning import API_V1_PREFIX
 from app.infrastructure.db.models import User
 from core.database import get_session
 
@@ -40,8 +41,8 @@ class AuthContext:
 
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/v1/auth/token",
-    refreshUrl="/api/v1/auth/refresh",
+    tokenUrl=f"{API_V1_PREFIX}/auth/token",
+    refreshUrl=f"{API_V1_PREFIX}/auth/refresh",
     auto_error=False,
 )
 

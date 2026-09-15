@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import CurrentUser, DepartmentCtrl
+from app.api.dependencies import CurrentUser, DepartmentCtrl
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.infrastructure.db.models import Department
 from app.schemas import (
@@ -17,7 +17,7 @@ from app.schemas import (
     SuccessEnvelope,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["Departments"])
+router = APIRouter(tags=["Departments"])
 
 
 def to_department_response(department: Department) -> DepartmentResponse:

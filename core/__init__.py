@@ -10,14 +10,9 @@ from core.database import (
     get_session,
     init_db,
 )
-from core.repository import BaseRepository
-
-# NOTE: Factory is intentionally NOT imported here to avoid circular dependencies
-# Import it directly when needed: from core.factory import Factory
 
 __all__ = [
     "Base",
-    "BaseRepository",
     "Settings",
     "TimestampMixin",
     "async_session_maker",

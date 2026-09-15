@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from app.api.errors import ConflictError, NotFoundError
-from app.models.organization import Organization
+from app.infrastructure.db.models import Organization
 from app.repositories.organization import OrganizationRepository
 
 

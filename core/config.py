@@ -2,30 +2,37 @@
 
 from __future__ import annotations
 
-import os
-from functools import cached_property
+from functools import cached_property, lru_cache
 
-from pydantic_settings import BaseSettings
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings from environment variables."""
+    """Application settings from environment variables.
+
+    Field defaults double as local-development fallbacks; pydantic-settings
+    reads matching environment variables and `.env` automatically, so no
+    manual `os.getenv()` calls are needed here.
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
     # App settings
     APP_NAME: str = "WorkPulse API"
     APP_VERSION: str = "0.1.0"
-    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    DEBUG: bool = False
 
     # Database settings
-    DB_USER: str = os.getenv("DB_USER", "postgres")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "postgres")
-    DB_HOST: str = os.getenv("DB_HOST", "localhost")
-    DB_PORT: int = int(os.getenv("DB_PORT", "5432"))
-    DB_NAME: str = os.getenv("DB_NAME", "workpulse")
-    SQL_ECHO: bool = os.getenv("SQL_ECHO", "false").lower() == "true"
+    DB_USER: str = "postgres"
+    DB_PASSWORD: str = "postgres"
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5432
+    DB_NAME: str = "workpulse"
+    SQL_ECHO: bool = False
 
     # Security settings
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+    SECRET_KEY: str = "dev-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -36,11 +43,20 @@ class Settings(BaseSettings):
     CORS_ALLOW_METHODS: list[str] = ["*"]
     CORS_ALLOW_HEADERS: list[str] = ["*"]
 
-    class Config:
-        """Pydantic config."""
+    @field_validator("CORS_ORIGINS", "CORS_ALLOW_METHODS", "CORS_ALLOW_HEADERS", mode="before")
+    @classmethod
+    def _split_comma_separated(cls, value: object) -> object:
+        """Accept `.env`-friendly comma-separated strings for list fields."""
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
-        env_file = ".env"
-        case_sensitive = True
+    @model_validator(mode="after")
+    def _disable_credentials_for_wildcard_origins(self) -> Settings:
+        """Browsers reject credentialed requests with a wildcard origin; mirror that here."""
+        if self.CORS_ORIGINS == ["*"] and self.CORS_ALLOW_CREDENTIALS:
+            self.CORS_ALLOW_CREDENTIALS = False
+        return self
 
     @cached_property
     def DATABASE_URL(self) -> str:
@@ -51,7 +67,13 @@ class Settings(BaseSettings):
         )
 
 
-# Global settings instance
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    """Return the cached application settings, injectable via `Depends(get_settings)`."""
+    return Settings()
 
-__all__ = ["Settings", "settings"]
+
+# Module-level singleton kept for existing call sites; prefer `get_settings()` in new code.
+settings = get_settings()
+
+__all__ = ["Settings", "get_settings", "settings"]

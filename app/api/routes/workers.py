@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import CurrentUser, WorkerCtrl
+from app.api.dependencies import CurrentUser, WorkerCtrl
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.infrastructure.db.models import Worker
 from app.schemas import (
@@ -17,7 +17,7 @@ from app.schemas import (
     WorkerUpdateRequest,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["Workers"])
+router = APIRouter(tags=["Workers"])
 
 
 def to_worker_response(worker: Worker) -> WorkerResponse:

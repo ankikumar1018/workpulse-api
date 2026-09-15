@@ -5,11 +5,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.api.deps import AuthCtrl
+from app.api.dependencies import AuthCtrl
 from app.api.utils import make_success_response
 from app.schemas import RefreshTokenRequest, SuccessEnvelope
 
-router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/token", response_model=SuccessEnvelope, status_code=status.HTTP_200_OK)

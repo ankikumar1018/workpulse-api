@@ -1,4 +1,4 @@
-"""API dependency injection utilities."""
+"""Controller dependency injection: builds request-scoped controllers via the DI factory."""
 
 from __future__ import annotations
 
@@ -7,15 +7,14 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import CurrentUser
 from app.controllers.auth import AuthController
 from app.controllers.department import DepartmentController
 from app.controllers.organization import OrganizationController
 from app.controllers.project import ProjectController
 from app.controllers.work_item import WorkItemController
 from app.controllers.worker import WorkerController
+from app.infrastructure.factory import Factory
 from core.database import get_session
-from core.factory import Factory
 
 
 async def get_organization_controller(
@@ -70,7 +69,6 @@ WorkItemCtrl = Annotated[WorkItemController, Depends(get_work_item_controller)]
 
 __all__ = [
     "AuthCtrl",
-    "CurrentUser",
     "DepartmentCtrl",
     "OrganizationCtrl",
     "ProjectCtrl",
@@ -80,7 +78,6 @@ __all__ = [
     "get_department_controller",
     "get_organization_controller",
     "get_project_controller",
-    "get_session",
     "get_work_item_controller",
     "get_worker_controller",
 ]

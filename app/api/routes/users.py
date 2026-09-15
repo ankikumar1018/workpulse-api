@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import AuthCtrl, CurrentUser
+from app.api.dependencies import AuthCtrl, CurrentUser
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.infrastructure.db.models import User
 from app.schemas import (
@@ -15,7 +15,7 @@ from app.schemas import (
     UserUpdateRequest,
 )
 
-router = APIRouter(prefix="/api/v1/users", tags=["Users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
 def to_user_response(user: User) -> UserResponse:

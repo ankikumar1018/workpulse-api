@@ -14,6 +14,11 @@ from app.schemas.requests.department import (
 )
 from app.schemas.requests.organization import OrganizationCreateRequest, OrganizationUpdateRequest
 from app.schemas.requests.project import ProjectCreateRequest, ProjectStatus, ProjectUpdateRequest
+from app.schemas.requests.template import (
+    TemplateChannel,
+    TemplateCreateRequest,
+    TemplateUpdateRequest,
+)
 from app.schemas.requests.work_item import (
     WorkItemCreateRequest,
     WorkItemUpdateRequest,
@@ -40,6 +45,9 @@ __all__ = [
     "ProjectStatus",
     "ProjectUpdateRequest",
     "RefreshTokenRequest",
+    "TemplateChannel",
+    "TemplateCreateRequest",
+    "TemplateUpdateRequest",
     "UserCreateRequest",
     "UserRole",
     "UserStatus",

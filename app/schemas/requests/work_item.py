@@ -29,6 +29,11 @@ class WorkItemUpdateStatusRequest(BaseModel):
     status: WorkStatus = Field(
         description="New status for the work item. Must be a valid transition."
     )
+    reason: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional human-readable reason for the status change.",
+    )
 
 
 class WorkItemUpdateRequest(BaseModel):

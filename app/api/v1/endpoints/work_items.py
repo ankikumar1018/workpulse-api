@@ -70,6 +70,8 @@ async def list_work_items(
     offset: int | None = Query(None, ge=0),
     department_id: UUID | None = None,
     status: str | None = None,
+    priority: str | None = None,
+    overdue: bool | None = Query(None),
 ):
     """List work items in a project."""
     current_user.assert_admin()
@@ -81,6 +83,8 @@ async def list_work_items(
         offset=offset,
         department_id=department_id,
         status=status,
+        priority=priority,
+        overdue=overdue,
     )
     return make_list_response(
         [to_work_item_response(wi) for wi in work_items], total, limit, offset
@@ -131,6 +135,7 @@ async def update_work_item_status(
         new_status=request.status,
         organization_id=current_user.organization_id,
         actor_user_id=current_user.user_id,
+        reason=request.reason,
     )
 
     # Return detailed transition response

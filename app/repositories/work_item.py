@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.db.models import WorkItem
@@ -75,29 +75,44 @@ class WorkItemRepository(BaseRepository[WorkItem]):
         offset: int,
         department_id: UUID | None = None,
         status: str | None = None,
+        priority: str | None = None,
+        overdue: bool | None = None,
     ) -> tuple[list[WorkItem], int]:
-        """List work items in an organization-scoped project.
+        """List work items in an organization-scoped project."""
+        query = select(WorkItem).where(
+            WorkItem.project_id == project_id,
+            WorkItem.organization_id == organization_id,
+        )
+        count_query = select(func.count(WorkItem.id)).where(
+            WorkItem.project_id == project_id,
+            WorkItem.organization_id == organization_id,
+        )
 
-        Args:
-            project_id: Project ID
-            organization_id: Organization ID
-            limit: Number of items to return
-            offset: Number of items to skip
-            department_id: Optional filter by department
-            status: Optional filter by status
-
-        Returns:
-            Tuple of (list of work items, total count)
-        """
-        filters: dict[str, object] = {
-            "project_id": project_id,
-            "organization_id": organization_id,
-        }
         if department_id:
-            filters["department_id"] = department_id
+            query = query.where(WorkItem.department_id == department_id)
+            count_query = count_query.where(WorkItem.department_id == department_id)
         if status:
-            filters["status"] = status
-        return await self.find_all(limit=limit, offset=offset, **filters)
+            query = query.where(WorkItem.status == status)
+            count_query = count_query.where(WorkItem.status == status)
+        if priority:
+            query = query.where(WorkItem.priority == priority)
+            count_query = count_query.where(WorkItem.priority == priority)
+        if overdue is not None:
+            if overdue:
+                query = query.where(WorkItem.due_at.is_not(None), WorkItem.due_at < func.now())
+                count_query = count_query.where(
+                    WorkItem.due_at.is_not(None), WorkItem.due_at < func.now()
+                )
+            else:
+                query = query.where(WorkItem.due_at.is_(None) | (WorkItem.due_at >= func.now()))
+                count_query = count_query.where(
+                    WorkItem.due_at.is_(None) | (WorkItem.due_at >= func.now())
+                )
+
+        total_result = await self.session.execute(count_query)
+        total = total_result.scalar_one() or 0
+        result = await self.session.execute(query.limit(limit).offset(offset))
+        return list(result.scalars().all()), total
 
     async def list_in_department(
         self,

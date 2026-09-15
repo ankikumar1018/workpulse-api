@@ -1,9 +1,36 @@
 """Comprehensive tests for work item domain model and state transitions."""
 
+from uuid import uuid4
+
 import pytest
 
 from app.domain.enums import WorkStatus
 from app.domain.work_item import InvalidTransitionError, WorkItem, WorkItemStateTransition
+from app.infrastructure.db.models import WorkItem as WorkItemModel
+
+
+from datetime import datetime, timezone
+
+
+class FakeWorkItemStatusHistoryRepository:
+    """In-memory repository used to test work-item status history persistence."""
+
+    def __init__(self):
+        self.records: list[dict] = []
+
+    async def record(self, **payload):
+        payload.setdefault("created_at", datetime.now(timezone.utc))
+        self.records.append(payload)
+        return payload
+
+    async def list_for_work_item(self, *, work_item_id, organization_id, limit=100, offset=0):
+        items = [
+            record
+            for record in self.records
+            if record["work_item_id"] == work_item_id
+            and record["organization_id"] == organization_id
+        ]
+        return items[offset : offset + limit], len(items)
 
 
 class TestWorkItemStateTransition:
@@ -252,6 +279,107 @@ class TestWorkItemEntity:
 
         work_item.transition_to(WorkStatus.IN_PROGRESS)
         assert work_item.status == WorkStatus.IN_PROGRESS
+
+
+@pytest.mark.asyncio
+async def test_work_item_status_update_records_history():
+    """Transitions should persist an append-only status timeline for each work item."""
+    work_item_id = uuid4()
+    organization_id = uuid4()
+    actor_user_id = uuid4()
+
+    work_item = WorkItemModel(
+        id=work_item_id,
+        organization_id=organization_id,
+        project_id=uuid4(),
+        department_id=uuid4(),
+        title="Install kitchen cabinets",
+        status=WorkStatus.OPEN,
+    )
+
+    class FakeSession:
+        async def flush(self):
+            return None
+
+    class FakeWorkItemRepository:
+        def __init__(self):
+            self.session = FakeSession()
+            self.entity = work_item
+
+        async def get_in_organization(self, *, work_item_id, organization_id):
+            if self.entity.id == work_item_id and self.entity.organization_id == organization_id:
+                return self.entity
+            return None
+
+    history_repo = FakeWorkItemStatusHistoryRepository()
+
+    from app.services.work_item import WorkItemService
+
+    controller = WorkItemService(
+        FakeWorkItemRepository(),
+        status_history_repository=history_repo,
+    )
+
+    result = await controller.update_work_item_status(
+        work_item_id=work_item_id,
+        new_status="in_progress",
+        organization_id=organization_id,
+        actor_user_id=actor_user_id,
+        reason="Work started",
+    )
+
+    assert result.status == WorkStatus.IN_PROGRESS
+    assert history_repo.records[0]["work_item_id"] == work_item_id
+    assert history_repo.records[0]["organization_id"] == organization_id
+    assert history_repo.records[0]["previous_status"] == WorkStatus.OPEN
+    assert history_repo.records[0]["new_status"] == WorkStatus.IN_PROGRESS
+    assert history_repo.records[0]["actor_user_id"] == actor_user_id
+    assert history_repo.records[0]["reason"] == "Work started"
+    assert history_repo.records[0]["created_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_work_item_service_list_filters_priority_and_overdue():
+    """List endpoints should support filtering by priority and overdue status."""
+    organization_id = uuid4()
+    project_id = uuid4()
+
+    class FakeProject:
+        def __init__(self):
+            self.organization_id = organization_id
+            self.status = "active"
+
+    class FakeSession:
+        async def get(self, model, obj_id):
+            if model.__name__ == "Project" and obj_id == project_id:
+                return FakeProject()
+            return None
+
+    class FakeWorkItemRepository:
+        def __init__(self):
+            self.session = FakeSession()
+            self.calls = []
+
+        async def list_in_project(self, **kwargs):
+            self.calls.append(kwargs)
+            return [], 0
+
+    repo = FakeWorkItemRepository()
+    from app.services.work_item import WorkItemService
+
+    controller = WorkItemService(repo)
+
+    await controller.list_work_items(
+        project_id=project_id,
+        organization_id=organization_id,
+        limit=20,
+        offset=0,
+        priority="high",
+        overdue=True,
+    )
+
+    assert repo.calls[0]["priority"] == "high"
+    assert repo.calls[0]["overdue"] is True
 
 
 __all__ = ["TestWorkItemEntity", "TestWorkItemStateTransition"]

@@ -292,6 +292,37 @@ class WorkItem(TimestampMixin, Base):
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
 
 
+class WorkItemStatusHistory(Base):
+    """Append-only work-item status transition history."""
+
+    __tablename__ = "work_item_status_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    work_item_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("work_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    previous_status: Mapped[WorkStatus] = mapped_column(
+        Enum(WorkStatus, name="work_status", values_callable=enum_values),
+        nullable=False,
+    )
+    new_status: Mapped[WorkStatus] = mapped_column(
+        Enum(WorkStatus, name="work_status", values_callable=enum_values),
+        nullable=False,
+    )
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class Template(TimestampMixin, Base):
     """Message template configuration."""
 

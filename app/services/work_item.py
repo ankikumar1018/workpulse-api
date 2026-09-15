@@ -12,6 +12,7 @@ from app.domain.work_item import InvalidTransitionError, WorkItemStateTransition
 from app.infrastructure.db.models import Department, Project, Worker, WorkItem as WorkItemModel
 from app.repositories.audit import AuditRepository
 from app.repositories.work_item import WorkItemRepository
+from app.repositories.work_item_status_history import WorkItemStatusHistoryRepository
 
 
 class WorkItemService:
@@ -21,9 +22,11 @@ class WorkItemService:
         self,
         repository: WorkItemRepository,
         audit_repository: AuditRepository | None = None,
+        status_history_repository: WorkItemStatusHistoryRepository | None = None,
     ):
         self.repository = repository
         self.audit_repository = audit_repository
+        self.status_history_repository = status_history_repository
 
     async def _get_project(
         self,
@@ -196,6 +199,29 @@ class WorkItemService:
 
         return work_item
 
+    async def _record_status_history(
+        self,
+        *,
+        work_item: WorkItemModel,
+        previous_status: WorkStatus,
+        new_status: WorkStatus,
+        organization_id: UUID,
+        actor_user_id: UUID | None,
+        reason: str | None,
+    ) -> None:
+        """Persist an append-only status-change record when the item actually transitions."""
+        if self.status_history_repository is None:
+            return
+
+        await self.status_history_repository.record(
+            organization_id=organization_id,
+            work_item_id=work_item.id,
+            previous_status=previous_status,
+            new_status=new_status,
+            actor_user_id=actor_user_id,
+            reason=reason,
+        )
+
     async def update_work_item_status(
         self,
         *,
@@ -203,6 +229,7 @@ class WorkItemService:
         new_status: str,
         organization_id: UUID,
         actor_user_id: UUID | None,
+        reason: str | None = None,
     ) -> WorkItemModel:
         """Update the status of a work item with validation.
 
@@ -247,6 +274,15 @@ class WorkItemService:
         if old_status != new_status_enum:
             work_item.status = new_status_enum
             await self.repository.session.flush()
+
+            await self._record_status_history(
+                work_item=work_item,
+                previous_status=old_status,
+                new_status=new_status_enum,
+                organization_id=organization_id,
+                actor_user_id=actor_user_id,
+                reason=reason,
+            )
 
             await self._audit(
                 organization_id=organization_id,
@@ -297,25 +333,21 @@ class WorkItemService:
         offset: int,
         department_id: UUID | None = None,
         status: str | None = None,
+        priority: str | None = None,
+        overdue: bool | None = None,
     ) -> tuple[list[WorkItemModel], int]:
-        """List work items in a project within organization scope.
-
-        Args:
-            project_id: Project ID
-            organization_id: Organization ID
-            limit: Number of items to return
-            offset: Number of items to skip
-            department_id: Optional filter by department
-            status: Optional filter by status
-
-        Returns:
-            Tuple of (list of work items, total count)
-
-        Raises:
-            NotFoundError: If project not found
-        """
-        # Validate project access
+        """List work items in a project within organization scope."""
         await self._get_project(project_id=project_id, organization_id=organization_id)
+
+        priority_value: str | None = None
+        if priority is not None:
+            try:
+                priority_value = WorkPriority(priority).value
+            except ValueError as error:
+                valid_priorities = ", ".join(item.value for item in WorkPriority)
+                raise UnprocessableEntityError(
+                    f"Invalid priority '{priority}'. Valid priorities: {valid_priorities}"
+                ) from error
 
         return await self.repository.list_in_project(
             project_id=project_id,
@@ -324,6 +356,8 @@ class WorkItemService:
             offset=offset,
             department_id=department_id,
             status=status,
+            priority=priority_value,
+            overdue=overdue,
         )
 
 

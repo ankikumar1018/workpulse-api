@@ -13,12 +13,15 @@ from app.repositories.auth import AuthRepository
 from app.repositories.department import DepartmentRepository
 from app.repositories.organization import OrganizationRepository
 from app.repositories.project import ProjectRepository
+from app.repositories.template import TemplateRepository
 from app.repositories.work_item import WorkItemRepository
 from app.repositories.worker import WorkerRepository
+from app.repositories.work_item_status_history import WorkItemStatusHistoryRepository
 from app.services.auth import AuthService
 from app.services.department import DepartmentService
 from app.services.organization import OrganizationService
 from app.services.project import ProjectService
+from app.services.template import TemplateService
 from app.services.work_item import WorkItemService
 from app.services.worker import WorkerService
 
@@ -47,6 +50,13 @@ class Factory:
         return ProjectService(repository, audit_repository)
 
     @staticmethod
+    def get_template_service(session: AsyncSession) -> TemplateService:
+        """Get template service with injected repositories."""
+        repository = TemplateRepository(session)
+        audit_repository = AuditRepository(session)
+        return TemplateService(repository, audit_repository)
+
+    @staticmethod
     def get_department_service(session: AsyncSession) -> DepartmentService:
         """Get department service with injected repositories."""
         repository = DepartmentRepository(session)
@@ -65,7 +75,8 @@ class Factory:
         """Get work item service with injected repositories."""
         repository = WorkItemRepository(session)
         audit_repository = AuditRepository(session)
-        return WorkItemService(repository, audit_repository)
+        status_history_repository = WorkItemStatusHistoryRepository(session)
+        return WorkItemService(repository, audit_repository, status_history_repository)
 
 
 __all__ = ["Factory"]

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.factory import Factory
 from app.services.auth import AuthService
 from app.services.department import DepartmentService
+from app.services.message import MessageService
 from app.services.organization import OrganizationService
 from app.services.project import ProjectService
 from app.services.template import TemplateService
@@ -53,6 +54,13 @@ async def get_department_service(
     return Factory.get_department_service(session)
 
 
+async def get_message_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MessageService:
+    """Dependency to get message service with injected session."""
+    return Factory.get_message_service(session)
+
+
 async def get_worker_service(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> WorkerService:
@@ -73,12 +81,14 @@ AuthSvc = Annotated[AuthService, Depends(get_auth_service)]
 ProjectSvc = Annotated[ProjectService, Depends(get_project_service)]
 TemplateSvc = Annotated[TemplateService, Depends(get_template_service)]
 DepartmentSvc = Annotated[DepartmentService, Depends(get_department_service)]
+MessageSvc = Annotated[MessageService, Depends(get_message_service)]
 WorkerSvc = Annotated[WorkerService, Depends(get_worker_service)]
 WorkItemSvc = Annotated[WorkItemService, Depends(get_work_item_service)]
 
 __all__ = [
     "AuthSvc",
     "DepartmentSvc",
+    "MessageSvc",
     "OrganizationSvc",
     "ProjectSvc",
     "TemplateSvc",
@@ -86,6 +96,7 @@ __all__ = [
     "WorkerSvc",
     "get_auth_service",
     "get_department_service",
+    "get_message_service",
     "get_organization_service",
     "get_project_service",
     "get_template_service",

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.departments import router as departments_router
+from app.api.v1.endpoints.messages import router as messages_router
 from app.api.v1.endpoints.organizations import router as organizations_router
 from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.templates import router as templates_router
@@ -15,6 +16,7 @@ from app.api.versioning import API_V1_PREFIX
 api_router = APIRouter(prefix=API_V1_PREFIX)
 api_router.include_router(auth_router)
 api_router.include_router(organizations_router)
+api_router.include_router(messages_router)
 api_router.include_router(projects_router)
 api_router.include_router(templates_router)
 api_router.include_router(departments_router)

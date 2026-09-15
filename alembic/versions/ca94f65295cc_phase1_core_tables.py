@@ -358,7 +358,15 @@ def upgrade() -> None:
         sa.Column("dispatch_key", sa.String(length=128), nullable=False),
         sa.Column(
             "delivery_status",
-            sa.Enum("queued", "sent", "delivered", "failed", name="delivery_status"),
+            sa.Enum(
+                "queued",
+                "processing",
+                "sent",
+                "delivered",
+                "failed",
+                "cancelled",
+                name="delivery_status",
+            ),
             server_default="queued",
             nullable=False,
         ),

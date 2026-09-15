@@ -486,6 +486,43 @@ class Message(TimestampMixin, Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class MessageStatusHistory(Base):
+    """Append-only delivery state history for an outbound message."""
+
+    __tablename__ = "message_status_history"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "message_id"],
+            ["messages.organization_id", "messages.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id"],
+            ["organizations.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    message_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    previous_status: Mapped[DeliveryStatus | None] = mapped_column(
+        Enum(DeliveryStatus, name="delivery_status", values_callable=enum_values)
+    )
+    new_status: Mapped[DeliveryStatus] = mapped_column(
+        Enum(DeliveryStatus, name="delivery_status", values_callable=enum_values),
+        nullable=False,
+    )
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    provider_name: Mapped[str | None] = mapped_column(String(100))
+    provider_message_id: Mapped[str | None] = mapped_column(String(255))
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class AuditLog(Base):
     """Immutable audit trail for phase 1 actions."""
 

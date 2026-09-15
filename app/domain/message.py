@@ -34,10 +34,21 @@ class Message:
     delivered_at: datetime | None = None
 
     VALID_TRANSITIONS: ClassVar[dict[DeliveryStatus, set[DeliveryStatus]]] = {
-        DeliveryStatus.QUEUED: {DeliveryStatus.SENT, DeliveryStatus.FAILED},
+        DeliveryStatus.QUEUED: {
+            DeliveryStatus.PROCESSING,
+            DeliveryStatus.SENT,
+            DeliveryStatus.FAILED,
+            DeliveryStatus.CANCELLED,
+        },
+        DeliveryStatus.PROCESSING: {
+            DeliveryStatus.SENT,
+            DeliveryStatus.FAILED,
+            DeliveryStatus.CANCELLED,
+        },
         DeliveryStatus.SENT: {DeliveryStatus.DELIVERED, DeliveryStatus.FAILED},
         DeliveryStatus.DELIVERED: set(),
         DeliveryStatus.FAILED: set(),
+        DeliveryStatus.CANCELLED: set(),
     }
 
     def can_transition_to(self, new_status: DeliveryStatus) -> bool:

@@ -1,5 +1,6 @@
 """Comprehensive tests for work item domain model and state transitions."""
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -9,9 +10,6 @@ from app.domain.work_item import InvalidTransitionError, WorkItem, WorkItemState
 from app.infrastructure.db.models import WorkItem as WorkItemModel
 
 
-from datetime import datetime, timezone
-
-
 class FakeWorkItemStatusHistoryRepository:
     """In-memory repository used to test work-item status history persistence."""
 
@@ -19,7 +17,7 @@ class FakeWorkItemStatusHistoryRepository:
         self.records: list[dict] = []
 
     async def record(self, **payload):
-        payload.setdefault("created_at", datetime.now(timezone.utc))
+        payload.setdefault("created_at", datetime.now(UTC))
         self.records.append(payload)
         return payload
 

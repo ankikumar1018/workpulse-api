@@ -43,6 +43,17 @@ def test_message_can_progress_from_queued_to_delivered() -> None:
     assert message.provider_message_id == "provider-message-1"
 
 
+def test_message_processing_and_cancellation_states_are_transition_safe():
+    message = make_message()
+
+    message.transition_to(DeliveryStatus.PROCESSING)
+    message.transition_to(DeliveryStatus.CANCELLED)
+
+    assert message.delivery_status == DeliveryStatus.CANCELLED
+    with pytest.raises(InvalidMessageTransitionError):
+        message.transition_to(DeliveryStatus.SENT)
+
+
 def test_message_rejects_invalid_terminal_transition() -> None:
     message = make_message()
     message.transition_to(DeliveryStatus.FAILED)

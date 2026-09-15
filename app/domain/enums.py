@@ -86,6 +86,8 @@ class DeliveryStatus(enum.StrEnum):
     SENT = "sent"
     DELIVERED = "delivered"
     FAILED = "failed"
+    PROCESSING = "processing"
+    CANCELLED = "cancelled"
 
 
 class AuditAction(enum.StrEnum):

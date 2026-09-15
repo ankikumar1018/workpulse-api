@@ -11,14 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.audit import AuditRepository
 from app.repositories.auth import AuthRepository
 from app.repositories.department import DepartmentRepository
+from app.repositories.message import MessageHistoryRepository, MessageRepository
 from app.repositories.organization import OrganizationRepository
 from app.repositories.project import ProjectRepository
 from app.repositories.template import TemplateRepository
 from app.repositories.work_item import WorkItemRepository
-from app.repositories.worker import WorkerRepository
 from app.repositories.work_item_status_history import WorkItemStatusHistoryRepository
+from app.repositories.worker import WorkerRepository
 from app.services.auth import AuthService
 from app.services.department import DepartmentService
+from app.services.message import MessageService
 from app.services.organization import OrganizationService
 from app.services.project import ProjectService
 from app.services.template import TemplateService
@@ -62,6 +64,13 @@ class Factory:
         repository = DepartmentRepository(session)
         audit_repository = AuditRepository(session)
         return DepartmentService(repository, audit_repository)
+
+    @staticmethod
+    def get_message_service(session: AsyncSession) -> MessageService:
+        """Get message service with injected lifecycle repositories."""
+        repository = MessageRepository(session)
+        history_repository = MessageHistoryRepository(session)
+        return MessageService(repository, history_repository)
 
     @staticmethod
     def get_worker_service(session: AsyncSession) -> WorkerService:

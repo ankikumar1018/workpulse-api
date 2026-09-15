@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -36,7 +36,7 @@ class WorkItemStatusHistoryRepository:
             new_status=new_status,
             actor_user_id=actor_user_id,
             reason=reason,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self.session.add(record)
         await self.session.commit()

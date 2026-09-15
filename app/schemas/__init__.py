@@ -33,6 +33,7 @@ from app.schemas.requests import (
 )
 from app.schemas.responses import (
     DepartmentResponse,
+    MessageHistoryResponse,
     OrganizationResponse,
     ProjectResponse,
     TemplateResponse,
@@ -50,6 +51,7 @@ __all__ = [
     "DepartmentUpdateRequest",
     "ErrorEnvelope",
     "ListEnvelope",
+    "MessageHistoryResponse",
     "OrganizationCreateRequest",
     "OrganizationResponse",
     "OrganizationUpdateRequest",

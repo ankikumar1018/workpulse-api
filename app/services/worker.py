@@ -12,7 +12,7 @@ from app.repositories.audit import AuditRepository
 from app.repositories.worker import WorkerRepository
 
 
-class WorkerController:
+class WorkerService:
     """Manage workers within organization-scoped departments."""
 
     def __init__(
@@ -284,4 +284,4 @@ class WorkerController:
             )
 
 
-__all__ = ["WorkerController"]
+__all__ = ["WorkerService"]

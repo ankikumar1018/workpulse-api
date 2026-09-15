@@ -1,4 +1,4 @@
-"""Organization business logic/controller."""
+"""Organization business logic/service."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from app.infrastructure.db.models import Organization
 from app.repositories.organization import OrganizationRepository
 
 
-class OrganizationController:
-    """Controller/Service for Organization business logic."""
+class OrganizationService:
+    """Service for Organization business logic."""
 
     def __init__(self, repository: OrganizationRepository):
         """Initialize with organization repository."""
@@ -84,4 +84,4 @@ class OrganizationController:
         await self.repository.delete(org_id)
 
 
-__all__ = ["OrganizationController"]
+__all__ = ["OrganizationService"]

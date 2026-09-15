@@ -39,9 +39,10 @@ FastAPI architecture.
 Keep responsibilities in the established layers:
 
 - `app/api/`: routes, dependencies, transport schemas, and HTTP error mapping.
-- `app/application/`: use cases and orchestration.
+- `app/services/`: use cases and orchestration (application service layer).
 - `app/domain/`: business rules, entities, value objects, and domain enums.
-- `app/infrastructure/`: database sessions, ORM models, and external adapters.
+- `app/repositories/`: persistence/data-access, scoped to one aggregate/table.
+- `app/infrastructure/`: database sessions, ORM models, the DI factory, and external adapters.
 - `app/workers/`: background jobs and webhook processing.
 - `core/`: shared configuration, database primitives, and repository behavior.
 

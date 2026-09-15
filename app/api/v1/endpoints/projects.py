@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.dependencies import CurrentUser, ProjectCtrl
+from app.api.dependencies import CurrentUser, ProjectSvc
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.infrastructure.db.models import Project
 from app.schemas import (
@@ -38,7 +38,7 @@ def to_project_response(project: Project) -> ProjectResponse:
 @router.post("", response_model=SuccessEnvelope, status_code=status.HTTP_201_CREATED)
 async def create_project(
     request: ProjectCreateRequest,
-    controller: ProjectCtrl,
+    controller: ProjectSvc,
     current_user: CurrentUser,
 ):
     """Create a project in the current user's organization."""
@@ -56,7 +56,7 @@ async def create_project(
 
 @router.get("", response_model=ListEnvelope)
 async def list_projects(
-    controller: ProjectCtrl,
+    controller: ProjectSvc,
     current_user: CurrentUser,
     limit: int | None = Query(None, ge=1, le=100),
     offset: int | None = Query(None, ge=0),
@@ -79,7 +79,7 @@ async def list_projects(
 @router.get("/{project_id}", response_model=SuccessEnvelope)
 async def get_project(
     project_id: UUID,
-    controller: ProjectCtrl,
+    controller: ProjectSvc,
     current_user: CurrentUser,
 ):
     """Get a project from the current user's organization."""
@@ -95,7 +95,7 @@ async def get_project(
 async def update_project(
     project_id: UUID,
     request: ProjectUpdateRequest,
-    controller: ProjectCtrl,
+    controller: ProjectSvc,
     current_user: CurrentUser,
 ):
     """Update a project in the current user's organization."""
@@ -112,7 +112,7 @@ async def update_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def archive_project(
     project_id: UUID,
-    controller: ProjectCtrl,
+    controller: ProjectSvc,
     current_user: CurrentUser,
 ):
     """Archive a project without deleting its historical records."""

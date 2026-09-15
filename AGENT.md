@@ -20,10 +20,11 @@ Treat [README.md](README.md) and [pyproject.toml](pyproject.toml) as source of t
 
 ## Architecture Boundaries
 
-- [app/api](app/api): HTTP routes, transport schemas
-- [app/application](app/application): orchestration/use-cases
+- [app/api](app/api): HTTP routes, transport schemas, DI wiring
+- [app/services](app/services): orchestration/use-cases (application service layer)
 - [app/domain](app/domain): business rules/entities
-- [app/infrastructure](app/infrastructure): DB and external adapters
+- [app/repositories](app/repositories): persistence/data-access layer
+- [app/infrastructure](app/infrastructure): DB session/ORM models, DI factory and external adapters
 - [app/workers](app/workers): async/background/webhook processing
 - [alembic](alembic): DB migration scripts
 - [tests](tests): automated tests

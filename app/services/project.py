@@ -13,7 +13,7 @@ from app.repositories.audit import AuditRepository
 from app.repositories.project import ProjectRepository
 
 
-class ProjectController:
+class ProjectService:
     """Manage projects within an organization."""
 
     def __init__(
@@ -155,4 +155,4 @@ class ProjectController:
             )
 
 
-__all__ = ["ProjectController"]
+__all__ = ["ProjectService"]

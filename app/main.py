@@ -8,8 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.exception_handlers import register_exception_handlers
-from app.api.routes import api_router
 from app.api.utils import make_success_response
+from app.api.v1 import api_router
 from app.schemas import SuccessEnvelope
 from app.schemas.common import HealthStatus
 from core.config import settings

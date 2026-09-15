@@ -2,13 +2,13 @@
 
 from fastapi import APIRouter
 
-from app.api.routes.auth import router as auth_router
-from app.api.routes.departments import router as departments_router
-from app.api.routes.organizations import router as organizations_router
-from app.api.routes.projects import router as projects_router
-from app.api.routes.users import router as users_router
-from app.api.routes.work_items import router as work_items_router
-from app.api.routes.workers import router as workers_router
+from app.api.v1.endpoints.auth import router as auth_router
+from app.api.v1.endpoints.departments import router as departments_router
+from app.api.v1.endpoints.organizations import router as organizations_router
+from app.api.v1.endpoints.projects import router as projects_router
+from app.api.v1.endpoints.users import router as users_router
+from app.api.v1.endpoints.work_items import router as work_items_router
+from app.api.v1.endpoints.workers import router as workers_router
 from app.api.versioning import API_V1_PREFIX
 
 api_router = APIRouter(prefix=API_V1_PREFIX)

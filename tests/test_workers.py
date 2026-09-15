@@ -4,10 +4,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.controllers.worker import WorkerController
 from app.domain.enums import ConsentStatus, EntityStatus
 from app.infrastructure.db.models import Department, Project, Worker
 from app.schemas.requests.worker import WorkerCreateRequest
+from app.services.worker import WorkerService
 
 
 class FakeSession:
@@ -103,7 +103,7 @@ async def test_worker_creation_is_scoped_and_audited():
     project = make_project(organization_id=organization_id)
     department = make_department(organization_id=organization_id, project_id=project.id)
     audit_repository = FakeAuditRepository()
-    controller = WorkerController(
+    controller = WorkerService(
         FakeWorkerRepository([project], [department]),
         audit_repository,
     )
@@ -129,7 +129,7 @@ async def test_worker_creation_is_scoped_and_audited():
 async def test_worker_creation_rejects_cross_tenant_department():
     project = make_project()
     department = make_department(organization_id=project.organization_id, project_id=project.id)
-    controller = WorkerController(FakeWorkerRepository([project], [department]))
+    controller = WorkerService(FakeWorkerRepository([project], [department]))
 
     with pytest.raises(NotFoundError) as exception_info:
         await controller.create_worker(
@@ -158,7 +158,7 @@ async def test_worker_phone_is_unique_within_organization():
         phone_number="+14155552671",
         status="active",
     )
-    controller = WorkerController(FakeWorkerRepository([project], [department], [existing]))
+    controller = WorkerService(FakeWorkerRepository([project], [department], [existing]))
 
     with pytest.raises(ConflictError) as exception_info:
         await controller.create_worker(
@@ -183,7 +183,7 @@ async def test_archived_department_rejects_new_workers():
         project_id=project.id,
         status=EntityStatus.ARCHIVED,
     )
-    controller = WorkerController(FakeWorkerRepository([project], [department]))
+    controller = WorkerService(FakeWorkerRepository([project], [department]))
 
     with pytest.raises(UnprocessableEntityError) as exception_info:
         await controller.create_worker(
@@ -222,7 +222,7 @@ async def test_worker_assignment_can_move_active_worker_and_records_audit():
         status="active",
     )
     audit_repository = FakeAuditRepository()
-    controller = WorkerController(
+    controller = WorkerService(
         FakeWorkerRepository([project], [source_department, target_department], [worker]),
         audit_repository,
     )
@@ -256,7 +256,7 @@ async def test_inactive_worker_cannot_be_assigned():
         phone_number="+14155552671",
         status="inactive",
     )
-    controller = WorkerController(
+    controller = WorkerService(
         FakeWorkerRepository([project], [source_department, target_department], [worker])
     )
 
@@ -290,7 +290,7 @@ async def test_opted_out_worker_cannot_be_assigned():
         consent_status=ConsentStatus.OPTED_OUT,
         status="active",
     )
-    controller = WorkerController(
+    controller = WorkerService(
         FakeWorkerRepository([project], [source_department, target_department], [worker])
     )
 
@@ -319,7 +319,7 @@ async def test_worker_assignment_can_be_removed_and_worker_becomes_inactive():
         status="active",
     )
     audit_repository = FakeAuditRepository()
-    controller = WorkerController(
+    controller = WorkerService(
         FakeWorkerRepository([project], [department], [worker]),
         audit_repository,
     )
@@ -353,7 +353,7 @@ async def test_worker_assignment_removal_rejects_mismatched_department():
         phone_number="+14155552671",
         status="active",
     )
-    controller = WorkerController(
+    controller = WorkerService(
         FakeWorkerRepository([project], [source_department, another_department], [worker])
     )
 

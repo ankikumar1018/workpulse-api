@@ -49,8 +49,9 @@ This document confirms the initial Python and dependency setup for the WorkPulse
 | `app/main.py` | FastAPI application factory |
 | `app/api/__init__.py` | API endpoints package |
 | `app/domain/__init__.py` | Business logic and domain models |
-| `app/application/__init__.py` | Use cases and application services |
-| `app/infrastructure/__init__.py` | Database, external adapters |
+| `app/services/__init__.py` | Use cases and application services |
+| `app/repositories/__init__.py` | Persistence/data-access layer |
+| `app/infrastructure/__init__.py` | Database, DI factory, external adapters |
 | `app/workers/__init__.py` | Async tasks and webhooks |
 
 ### Testing Setup

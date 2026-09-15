@@ -22,7 +22,7 @@ from app.schemas.responses.auth import TokenResponse
 from core.config import settings
 
 
-class AuthController:
+class AuthService:
     """Authenticate users and rotate refresh sessions."""
 
     def __init__(self, repository: AuthRepository, audit_repository: AuditRepository | None = None):
@@ -178,4 +178,4 @@ class AuthController:
         )
 
 
-__all__ = ["AuthController"]
+__all__ = ["AuthService"]

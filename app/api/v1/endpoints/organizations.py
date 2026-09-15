@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.dependencies import CurrentUser, OrganizationCtrl
+from app.api.dependencies import CurrentUser, OrganizationSvc
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.schemas import (
     ListEnvelope,
@@ -30,7 +30,7 @@ router = APIRouter(
 )
 async def create_organization(
     request: OrganizationCreateRequest,
-    controller: OrganizationCtrl,
+    controller: OrganizationSvc,
     current_user: CurrentUser,
 ):
     """Create a new organization."""
@@ -58,7 +58,7 @@ async def create_organization(
     summary="List organizations",
 )
 async def list_organizations(
-    controller: OrganizationCtrl,
+    controller: OrganizationSvc,
     current_user: CurrentUser,
     limit: int | None = Query(None, ge=1, le=100),
     offset: int | None = Query(None, ge=0),
@@ -98,7 +98,7 @@ async def list_organizations(
 )
 async def get_organization(
     org_id: UUID,
-    controller: OrganizationCtrl,
+    controller: OrganizationSvc,
     current_user: CurrentUser,
 ):
     """Retrieve a specific organization by ID."""
@@ -125,7 +125,7 @@ async def get_organization(
 async def update_organization(
     org_id: UUID,
     request: OrganizationUpdateRequest,
-    controller: OrganizationCtrl,
+    controller: OrganizationSvc,
     current_user: CurrentUser,
 ):
     """Partially update an organization."""
@@ -153,7 +153,7 @@ async def update_organization(
 )
 async def delete_organization(
     org_id: UUID,
-    controller: OrganizationCtrl,
+    controller: OrganizationSvc,
     current_user: CurrentUser,
 ):
     """Delete an organization."""

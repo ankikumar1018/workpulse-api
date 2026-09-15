@@ -2,8 +2,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.controllers.organization import OrganizationController
 from app.infrastructure.db.models import Organization
+from app.services.organization import OrganizationService
 
 
 class FakeOrganizationRepository:
@@ -30,7 +30,7 @@ async def test_list_organizations_is_scoped_to_authenticated_organization():
         Organization(id=other_organization_id, name="Other", slug="other"),
     ]
     repository = FakeOrganizationRepository(organizations)
-    controller = OrganizationController(repository)
+    controller = OrganizationService(repository)
 
     result, total = await controller.list_organizations(organization_id=organization_id)
 

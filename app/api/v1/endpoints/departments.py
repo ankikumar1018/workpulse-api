@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.dependencies import CurrentUser, DepartmentCtrl
+from app.api.dependencies import CurrentUser, DepartmentSvc
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.infrastructure.db.models import Department
 from app.schemas import (
@@ -42,7 +42,7 @@ def to_department_response(department: Department) -> DepartmentResponse:
 async def create_department(
     project_id: UUID,
     request: DepartmentCreateRequest,
-    controller: DepartmentCtrl,
+    controller: DepartmentSvc,
     current_user: CurrentUser,
 ):
     """Create a department in the current user's project."""
@@ -59,7 +59,7 @@ async def create_department(
 @router.get("/projects/{project_id}/departments", response_model=ListEnvelope)
 async def list_departments(
     project_id: UUID,
-    controller: DepartmentCtrl,
+    controller: DepartmentSvc,
     current_user: CurrentUser,
     limit: int | None = Query(None, ge=1, le=100),
     offset: int | None = Query(None, ge=0),
@@ -86,7 +86,7 @@ async def list_departments(
 @router.get("/departments/{department_id}", response_model=SuccessEnvelope)
 async def get_department(
     department_id: UUID,
-    controller: DepartmentCtrl,
+    controller: DepartmentSvc,
     current_user: CurrentUser,
 ):
     """Get a department from the current user's organization."""
@@ -102,7 +102,7 @@ async def get_department(
 async def update_department(
     department_id: UUID,
     request: DepartmentUpdateRequest,
-    controller: DepartmentCtrl,
+    controller: DepartmentSvc,
     current_user: CurrentUser,
 ):
     """Update a department in the current user's organization."""
@@ -119,7 +119,7 @@ async def update_department(
 @router.delete("/departments/{department_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def archive_department(
     department_id: UUID,
-    controller: DepartmentCtrl,
+    controller: DepartmentSvc,
     current_user: CurrentUser,
 ):
     """Archive a department without deleting its historical records."""

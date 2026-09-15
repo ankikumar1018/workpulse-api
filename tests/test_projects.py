@@ -5,10 +5,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.controllers.project import ProjectController
 from app.domain.enums import EntityStatus
 from app.infrastructure.db.models import Project
 from app.schemas.requests.project import ProjectCreateRequest, ProjectUpdateRequest
+from app.services.project import ProjectService
 
 
 class FakeSession:
@@ -84,7 +84,7 @@ async def test_project_lifecycle_is_tenant_scoped_and_audited():
     actor_user_id = uuid4()
     repository = FakeProjectRepository([make_project(organization_id=uuid4(), name="Other")])
     audit_repository = FakeAuditRepository()
-    controller = ProjectController(repository, audit_repository)
+    controller = ProjectService(repository, audit_repository)
 
     project = await controller.create_project(
         organization_id=organization_id,
@@ -107,7 +107,7 @@ async def test_project_lifecycle_is_tenant_scoped_and_audited():
 async def test_project_duplicate_name_is_rejected_within_organization():
     organization_id = uuid4()
     repository = FakeProjectRepository([make_project(organization_id=organization_id)])
-    controller = ProjectController(repository)
+    controller = ProjectService(repository)
 
     with pytest.raises(ConflictError) as exception_info:
         await controller.create_project(
@@ -125,7 +125,7 @@ async def test_project_duplicate_name_is_rejected_within_organization():
 async def test_archived_project_cannot_be_modified():
     project = make_project()
     project.status = EntityStatus.ARCHIVED
-    controller = ProjectController(FakeProjectRepository([project]))
+    controller = ProjectService(FakeProjectRepository([project]))
 
     with pytest.raises(UnprocessableEntityError) as exception_info:
         await controller.update_project(
@@ -140,7 +140,7 @@ async def test_archived_project_cannot_be_modified():
 @pytest.mark.asyncio
 async def test_partial_project_date_update_uses_existing_date_for_validation():
     project = make_project()
-    controller = ProjectController(FakeProjectRepository([project]))
+    controller = ProjectService(FakeProjectRepository([project]))
 
     with pytest.raises(UnprocessableEntityError) as exception_info:
         await controller.update_project(

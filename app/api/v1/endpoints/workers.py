@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.dependencies import CurrentUser, WorkerCtrl
+from app.api.dependencies import CurrentUser, WorkerSvc
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.infrastructure.db.models import Worker
 from app.schemas import (
@@ -44,7 +44,7 @@ def to_worker_response(worker: Worker) -> WorkerResponse:
 async def create_worker(
     department_id: UUID,
     request: WorkerCreateRequest,
-    controller: WorkerCtrl,
+    controller: WorkerSvc,
     current_user: CurrentUser,
 ):
     """Create a worker in the current user's department."""
@@ -64,7 +64,7 @@ async def create_worker(
 @router.get("/departments/{department_id}/workers", response_model=ListEnvelope)
 async def list_workers(
     department_id: UUID,
-    controller: WorkerCtrl,
+    controller: WorkerSvc,
     current_user: CurrentUser,
     limit: int | None = Query(None, ge=1, le=100),
     offset: int | None = Query(None, ge=0),
@@ -88,7 +88,7 @@ async def list_workers(
 @router.get("/workers/{worker_id}", response_model=SuccessEnvelope)
 async def get_worker(
     worker_id: UUID,
-    controller: WorkerCtrl,
+    controller: WorkerSvc,
     current_user: CurrentUser,
 ):
     """Get a worker from the current user's organization."""
@@ -104,7 +104,7 @@ async def get_worker(
 async def update_worker(
     worker_id: UUID,
     request: WorkerUpdateRequest,
-    controller: WorkerCtrl,
+    controller: WorkerSvc,
     current_user: CurrentUser,
 ):
     """Update a worker in the current user's organization."""
@@ -121,7 +121,7 @@ async def update_worker(
 @router.delete("/workers/{worker_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def archive_worker(
     worker_id: UUID,
-    controller: WorkerCtrl,
+    controller: WorkerSvc,
     current_user: CurrentUser,
 ):
     """Deactivate a worker without deleting historical records."""
@@ -140,7 +140,7 @@ async def archive_worker(
 async def assign_worker_to_department(
     department_id: UUID,
     worker_id: UUID,
-    controller: WorkerCtrl,
+    controller: WorkerSvc,
     current_user: CurrentUser,
 ):
     """Assign an existing worker to an active department in the same organization."""
@@ -161,7 +161,7 @@ async def assign_worker_to_department(
 async def remove_worker_assignment(
     department_id: UUID,
     worker_id: UUID,
-    controller: WorkerCtrl,
+    controller: WorkerSvc,
     current_user: CurrentUser,
 ):
     """Mark an assignment inactive so the worker is no longer a communication recipient."""

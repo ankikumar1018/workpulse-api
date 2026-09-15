@@ -87,7 +87,7 @@ async def test_get_organization_returns_expected_data(repository):
 
 ## Test Approach
 
-- Prefer unit tests for pure functions, schemas, domain rules, controllers,
+- Prefer unit tests for pure functions, schemas, domain rules, services,
   and repository behavior that can run without HTTP middleware.
 - Use `TestClient` for focused synchronous API contract tests.
 - Use `httpx.AsyncClient` with `ASGITransport` only when the test itself needs

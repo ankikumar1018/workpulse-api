@@ -14,7 +14,7 @@ from app.repositories.audit import AuditRepository
 from app.repositories.work_item import WorkItemRepository
 
 
-class WorkItemController:
+class WorkItemService:
     """Manage work items within organization and project scopes."""
 
     def __init__(
@@ -327,4 +327,4 @@ class WorkItemController:
         )
 
 
-__all__ = ["WorkItemController"]
+__all__ = ["WorkItemService"]

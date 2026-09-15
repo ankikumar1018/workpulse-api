@@ -10,9 +10,9 @@ from app.api.security import (
     hash_refresh_token,
     verify_password,
 )
-from app.controllers.auth import AuthController
 from app.domain.enums import AuditAction
 from app.infrastructure.db.models import RefreshSession, User
+from app.services.auth import AuthService
 
 
 class FakeAuthRepository:
@@ -123,7 +123,7 @@ def test_password_hashing():
 async def test_login_issues_tokens_and_refresh_rotates_session():
     user = make_user()
     repository = FakeAuthRepository(user)
-    controller = AuthController(repository)
+    controller = AuthService(repository)
 
     tokens = await controller.login(user.email, "correct-password")
     old_session = repository.refresh_session
@@ -141,7 +141,7 @@ async def test_login_issues_tokens_and_refresh_rotates_session():
 
 @pytest.mark.asyncio
 async def test_login_rejects_invalid_credentials():
-    controller = AuthController(FakeAuthRepository(make_user()))
+    controller = AuthService(FakeAuthRepository(make_user()))
 
     with pytest.raises(UnauthorizedError):
         await controller.login("admin@example.com", "wrong-password")
@@ -151,7 +151,7 @@ async def test_login_rejects_invalid_credentials():
 async def test_refresh_rejects_revoked_session():
     user = make_user()
     repository = FakeAuthRepository(user)
-    controller = AuthController(repository)
+    controller = AuthService(repository)
     tokens = await controller.login(user.email, "correct-password")
     await controller.refresh(tokens.refresh_token)
 
@@ -165,7 +165,7 @@ async def test_user_lifecycle_normalizes_email_and_hashes_password():
     user = make_user()
     user.organization_id = organization_id
     repository = FakeAuthRepository(user)
-    controller = AuthController(repository)
+    controller = AuthService(repository)
 
     created = await controller.create_user(
         organization_id=organization_id,
@@ -197,7 +197,7 @@ async def test_user_lifecycle_normalizes_email_and_hashes_password():
 async def test_user_management_rejects_duplicate_and_cross_organization_access():
     user = make_user()
     repository = FakeAuthRepository(user)
-    controller = AuthController(repository)
+    controller = AuthService(repository)
 
     with pytest.raises(ConflictError) as exception_info:
         await controller.create_user(
@@ -218,7 +218,7 @@ async def test_user_management_rejects_duplicate_and_cross_organization_access()
 async def test_user_mutations_record_audit_events_without_password_data():
     user = make_user()
     audit_repository = FakeAuditRepository()
-    controller = AuthController(FakeAuthRepository(user), audit_repository)
+    controller = AuthService(FakeAuthRepository(user), audit_repository)
 
     created = await controller.create_user(
         organization_id=user.organization_id,

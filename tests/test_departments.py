@@ -3,9 +3,9 @@ from uuid import uuid4
 import pytest
 
 from app.api.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.controllers.department import DepartmentController
 from app.domain.enums import ConsentStatus, EntityStatus, WorkerStatus
 from app.infrastructure.db.models import Department, Project, Worker
+from app.services.department import DepartmentService
 
 
 class FakeSession:
@@ -125,7 +125,7 @@ async def test_department_creation_validates_project_tenant_and_records_audit():
     organization_id = uuid4()
     project = make_project(organization_id=organization_id)
     audit_repository = FakeAuditRepository()
-    controller = DepartmentController(
+    controller = DepartmentService(
         FakeDepartmentRepository([project]),
         audit_repository,
     )
@@ -144,7 +144,7 @@ async def test_department_creation_validates_project_tenant_and_records_audit():
 @pytest.mark.asyncio
 async def test_cross_tenant_project_is_hidden():
     project = make_project()
-    controller = DepartmentController(FakeDepartmentRepository([project]))
+    controller = DepartmentService(FakeDepartmentRepository([project]))
 
     with pytest.raises(NotFoundError) as exception_info:
         await controller.create_department(
@@ -162,7 +162,7 @@ async def test_department_name_is_unique_within_project():
     organization_id = uuid4()
     project = make_project(organization_id=organization_id)
     department = make_department(organization_id=organization_id, project_id=project.id)
-    controller = DepartmentController(FakeDepartmentRepository([project], [department]))
+    controller = DepartmentService(FakeDepartmentRepository([project], [department]))
 
     with pytest.raises(ConflictError) as exception_info:
         await controller.create_department(
@@ -179,7 +179,7 @@ async def test_department_name_is_unique_within_project():
 async def test_archived_project_rejects_new_departments():
     organization_id = uuid4()
     project = make_project(organization_id=organization_id, status=EntityStatus.ARCHIVED)
-    controller = DepartmentController(FakeDepartmentRepository([project]))
+    controller = DepartmentService(FakeDepartmentRepository([project]))
 
     with pytest.raises(UnprocessableEntityError) as exception_info:
         await controller.create_department(
@@ -199,7 +199,7 @@ async def test_primary_contact_worker_can_be_set_for_department_and_audited():
     department = make_department(organization_id=organization_id, project_id=project.id)
     worker = make_worker(organization_id=organization_id, department_id=department.id)
     audit_repository = FakeAuditRepository()
-    controller = DepartmentController(
+    controller = DepartmentService(
         FakeDepartmentRepository([project], [department], [worker]),
         audit_repository,
     )
@@ -226,7 +226,7 @@ async def test_primary_contact_must_belong_to_same_department():
         name="Living Room",
     )
     worker = make_worker(organization_id=organization_id, department_id=other_department.id)
-    controller = DepartmentController(FakeDepartmentRepository([project], [department], [worker]))
+    controller = DepartmentService(FakeDepartmentRepository([project], [department], [worker]))
 
     with pytest.raises(UnprocessableEntityError) as exception_info:
         await controller.update_department(
@@ -251,7 +251,7 @@ async def test_inactive_worker_cannot_be_primary_contact():
         department_id=department.id,
         status=WorkerStatus.INACTIVE,
     )
-    controller = DepartmentController(FakeDepartmentRepository([project], [department], [worker]))
+    controller = DepartmentService(FakeDepartmentRepository([project], [department], [worker]))
 
     with pytest.raises(UnprocessableEntityError) as exception_info:
         await controller.update_department(
@@ -274,7 +274,7 @@ async def test_opted_out_worker_cannot_be_primary_contact():
         department_id=department.id,
         consent_status=ConsentStatus.OPTED_OUT,
     )
-    controller = DepartmentController(FakeDepartmentRepository([project], [department], [worker]))
+    controller = DepartmentService(FakeDepartmentRepository([project], [department], [worker]))
 
     with pytest.raises(UnprocessableEntityError) as exception_info:
         await controller.update_department(
@@ -295,7 +295,7 @@ async def test_archiving_department_clears_primary_contact_worker():
     worker = make_worker(organization_id=organization_id, department_id=department.id)
     department.primary_contact_worker_id = worker.id
     audit_repository = FakeAuditRepository()
-    controller = DepartmentController(
+    controller = DepartmentService(
         FakeDepartmentRepository([project], [department], [worker]),
         audit_repository,
     )

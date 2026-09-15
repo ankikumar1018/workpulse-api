@@ -24,15 +24,17 @@ class OrganizationResponse(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
-        json_schema_extra={"example": {
-        "id": "550e8400-e29b-41d4-a716-446655440000",
-        "name": "Acme Corp",
-        "slug": "acme-corp",
-        "status": "active",
-        "subscription_status": "active",
-        "created_at": "2026-01-15T10:30:00Z",
-        "updated_at": "2026-01-15T10:30:00Z",
-        }},
+        json_schema_extra={
+            "example": {
+                "id": "550e8400-e29b-41d4-a716-446655440000",
+                "name": "Acme Corp",
+                "slug": "acme-corp",
+                "status": "active",
+                "subscription_status": "active",
+                "created_at": "2026-01-15T10:30:00Z",
+                "updated_at": "2026-01-15T10:30:00Z",
+            }
+        },
     )
 
 

@@ -83,5 +83,3 @@ def test_camelize_options():
         "requestId": "req-1",
         "nestedData": {"createdAt": "now"},
     }
-
-

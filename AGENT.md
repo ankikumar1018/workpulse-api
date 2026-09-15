@@ -56,16 +56,13 @@ Build in this exact order unless explicitly changed by the user.
 Run from backend root.
 
 - Install deps (dev): `uv sync --group dev`
-- Run tests: `uv run pytest`
-- Run tests with warnings shown: `uv run pytest -Wd`
-- Lint: `uv run ruff check .`
-- Format check: `uv run black --check app tests`
-- Import order check: `uv run isort --check app tests`
-- Type check: `uv run mypy app`
-- Start API (dev): `uv run fastapi dev app/main.py --port 8000`
-- Apply migrations: `uv run alembic upgrade head`
-- Generate migration: `uv run alembic revision --autogenerate -m "Describe change"`
-- Check for schema drift: `uv run alembic check`
+- Run tests: `docker compose --profile test run --rm test`
+- Run tests with warnings shown: `docker compose run --rm --no-deps test pytest -Wd`
+- Quality checks: `bash scripts/format.sh`
+- Start API (dev): `docker compose up --build api postgres`
+- Apply migrations: `docker compose run --rm api alembic upgrade head`
+- Generate migration: `docker compose run --rm api alembic revision --autogenerate -m "Describe change"`
+- Check for schema drift: `docker compose run --rm api alembic check`
 
 If dependencies change, run `uv lock` and include `uv.lock` in the same commit.
 
@@ -79,17 +76,13 @@ If dependencies change, run `uv lock` and include `uv.lock` in the same commit.
 
 Run all:
 
-1. `uv run ruff check .`
-2. `uv run black --check app tests`
-3. `uv run isort --check app tests`
-4. `uv run mypy app`
-5. `uv run pytest`
+1. `bash scripts/format.sh`
+2. `docker compose --profile test run --rm test`
 
 For non-trivial backend changes, prefer this order:
 
-1. `uv run ruff check .`
-2. `uv run mypy app`
-3. `uv run pytest -Wd`
+1. `bash scripts/format.sh`
+2. `docker compose run --rm --no-deps test pytest -Wd`
 
 ## Engineering Rules
 

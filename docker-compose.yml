@@ -1,74 +1,164 @@
+# Docker Compose describes the local WorkPulse backend stack.
+# Run commands from this directory with `docker compose ...`.
+
 services:
-  # PostgreSQL Database
+  # PostgreSQL is the local database used by the API, migrations, and tests.
   postgres:
+    # PostgreSQL 18 on Alpine Linux gives a small local database image.
     image: postgres:18-alpine
+    # A fixed name makes logs and Docker Desktop easier to read.
     container_name: workpulse-postgres
+    # Expose PostgreSQL on the host so database tools can connect locally.
+    # Inside Docker, other services use the service name `postgres` instead.
     ports:
       - "5432:5432"
+    # These values create the local development database on first startup.
+    # They are intentionally simple local credentials, not production secrets.
     environment:
       POSTGRES_DB: workpulse
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    # PostgreSQL 18 expects the volume mounted at /var/lib/postgresql so it can
+    # create version-specific data directories safely.
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
+    # The API and test services wait for this healthcheck before connecting.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - workpulse-network
+    # Put PostgreSQL on the private project network with the API.
+    networks: [workpulse-network]
 
-  # FastAPI Backend
-  api:
+  # One-shot migration runner. Keeping migrations separate from the web server
+  # mirrors production deployments, where schema changes should finish before
+  # application instances accept traffic.
+  migrate:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: workpulse-api
-    ports:
-      - "8000:8000"
+      target: production
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/workpulse
-      PYTHONENV: development
-      DEBUG: "True"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: workpulse
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DEBUG: "False"
       SECRET_KEY: dev-secret-key-change-in-production
-      LOG_LEVEL: DEBUG
+      LOG_LEVEL: INFO
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./app:/app/app
-      - ./alembic:/app/alembic
-    command: >
-      sh -c "
-        echo 'Running migrations...' &&
-        alembic upgrade head &&
-        echo 'Starting server...' &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-      "
-    networks:
-      - workpulse-network
+    command: alembic upgrade head
+    networks: [workpulse-network]
+
+  # FastAPI backend service used for local development and production-like smoke
+  # testing. It starts only the server; migrations are handled by migrate.
+  api:
+    # Build from the Dockerfile in this repository.
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # The API runs the lean production image: no tests or dev tools included.
+      target: production
+    # A fixed name makes the API container easy to inspect and log.
+    container_name: workpulse-api
+    # Expose the FastAPI server at http://localhost:8000 on the host.
+    ports:
+      - "8000:8000"
+    # Runtime configuration for local development.
+    # DATABASE_URL is used by Alembic migrations.
+    # DB_* values are used by the application settings object.
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/workpulse
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: workpulse
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DEBUG: "True"
+      SECRET_KEY: dev-secret-key-change-in-production
+      LOG_LEVEL: DEBUG
+    # Do not start the API until PostgreSQL is accepting connections and
+    # migrations have completed successfully.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # Start the API server. Reload is intentionally disabled because this image
+    # is built from immutable source rather than a bind-mounted checkout.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    # Use the same private network as PostgreSQL.
+    networks: [workpulse-network]
+    # Restart during normal development if the container exits unexpectedly.
     restart: unless-stopped
 
-  # Optional: pgAdmin for database management
+  # One-shot test runner. It is only created when the `test` profile is used.
+  test:
+    # Build the same image as the API so tests run against the real container
+    # environment rather than the host machine.
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # The test service uses the development target so quality/test tools are
+      # available without bloating the production API image.
+      target: development
+    # Tests use the same local database credentials and an explicit test secret.
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/workpulse
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: workpulse
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DEBUG: "False"
+      SECRET_KEY: test-secret-key
+    # Wait for PostgreSQL before applying migrations and running tests.
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Keep this command self-contained: migrate the fresh database, then run the
+    # full pytest suite from inside the container.
+    command: >
+      sh -c "
+        alembic upgrade head &&
+        python -m pytest
+      "
+    networks: [workpulse-network]
+    # Prevent the test container from starting during normal `docker compose up`.
+    profiles: [test]
+
+  # Optional browser-based PostgreSQL admin UI for local troubleshooting.
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: workpulse-pgadmin
+    # Open pgAdmin at http://localhost:5050 when the admin profile is enabled.
     ports:
       - "5050:80"
+    # Local-only pgAdmin login. Do not reuse these values in production.
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
+    # pgAdmin is more useful after the database is ready.
     depends_on:
-      - postgres
-    networks:
-      - workpulse-network
+      postgres:
+        condition: service_healthy
+    networks: [workpulse-network]
+    # Keep pgAdmin opt-in so it does not start for every developer command.
+    profiles: [admin]
     restart: unless-stopped
 
 volumes:
+  # Named volume that keeps local database data across container restarts.
+  # Remove it with `docker compose down --volumes` when you need a fresh DB.
   postgres_data:
     driver: local
 
 networks:
+  # Private bridge network so services can reach each other by service name.
   workpulse-network:
     driver: bridge

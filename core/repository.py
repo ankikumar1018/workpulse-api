@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,7 +60,8 @@ class BaseRepository[T]:
             query = query.where(getattr(self.model, key) == value)
 
         # Get total count
-        count_query = select(func.count(self.model.id)).select_from(self.model)
+        model = cast(Any, self.model)
+        count_query = select(func.count(model.id)).select_from(self.model)
         for key, value in filters.items():
             count_query = count_query.where(getattr(self.model, key) == value)
 
@@ -70,7 +71,7 @@ class BaseRepository[T]:
         # Get paginated results
         query = query.limit(limit).offset(offset)
         result = await self.session.execute(query)
-        return result.scalars().all(), total
+        return list(result.scalars().all()), total
 
     async def update(self, obj_id: Any, obj_in: dict[str, Any]) -> T | None:
         """Update a record."""

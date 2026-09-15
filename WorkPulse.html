@@ -177,7 +177,7 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 
 <section class="section" id="implementation-status">
 <h2>Current Implementation Status</h2><span class="status">✓ PHASE 4 IN PROGRESS</span>
-<p class="small">Last reconciled: 2026-09-10 · Work-item model and lifecycle transition slice implemented</p>
+<p class="small">Last reconciled: 2026-09-15 · Docker production split, quality gate script and work-item lifecycle verified</p>
 <table><tr><th>Area</th><th>Status</th><th>Verified outcome</th></tr>
 <tr><td>Foundation and architecture</td><td><span class="done">Done</span></td><td>FastAPI, PostgreSQL, SQLAlchemy, Alembic, Docker workflow and quality tooling are established.</td></tr>
 <tr><td>Authentication</td><td><span class="done">Done</span></td><td>JWT access tokens, refresh rotation/revocation and hashed refresh-session storage are implemented.</td></tr>
@@ -187,9 +187,11 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <tr><td>Stage 3 delivery</td><td><span class="done">Done</span></td><td>Projects, departments, workers, assignment lifecycle, primary-contact rules and consent-aware recipient validation are implemented and tested.</td></tr>
 <tr><td>Work item model</td><td><span class="done">Implemented</span></td><td>Work item create/list/get APIs now enforce project, department, worker and organization ownership boundaries, with priority and due-date contracts.</td></tr>
 <tr><td>Lifecycle transitions</td><td><span class="done">Implemented</span></td><td>Explicit status transition rules, terminal states, deterministic invalid-transition errors and audit hooks are implemented and covered by focused domain tests.</td></tr>
+<tr><td>Docker and quality workflow</td><td><span class="done">Done</span></td><td>Production and development image targets are separated; migrations run as a one-shot Compose service; the API runs non-root without reload; <code>scripts/format.sh</code> runs Ruff, Black, isort and mypy inside Docker.</td></tr>
+<tr><td>Validation</td><td><span class="done">Verified</span></td><td>Docker test suite passes 70 tests; Ruff, Black, isort and mypy pass; the production API image excludes tests and development tools and the running health endpoint is healthy.</td></tr>
 <tr><td>Current active item</td><td><span class="tag">WI-4.3</span></td><td>Persist append-only work status history with actor, previous status, new status, timestamp and optional reason.</td></tr>
 </table>
-<div class="callout warning"><b>Validation note:</b> the focused work-item tests pass (19 tests) and the full backend suite passes (70 tests). Repository-wide Ruff passes. Repository-wide Black still reports pre-existing formatting findings outside this slice; the editor also reports a Pylance environment diagnostic for <code>pydantic</code> even though the configured test interpreter imports it successfully.</div>
+<div class="callout"><b>Current validation note:</b> the required backend checks run from Docker. The test service applies migrations and passes the full 70-test suite; <code>scripts/format.sh</code> passes Ruff, Black, isort and mypy. The production image is separate from the development/test image.</div>
 </section>
 
 <section class="section" id="scope">
@@ -347,13 +349,14 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 
 <section class="section" id="local-dev">
 <h2>8. Local Development Strategy</h2><span class="status">✓ DONE</span>
-<p>Docker is used from the beginning to reduce environment drift, but cloud deployment is intentionally deferred to the final delivery stage.</p>
+<p>Docker is the supported development and validation environment. The Compose stack runs PostgreSQL, migrations and the API; the production image stays separate from the development/test image. Cloud deployment is intentionally deferred to the final delivery stage.</p>
 <div class="flow">
 <div class="node">Developer</div><span class="arrow">→</span><div class="node"><code>docker compose up</code></div><span class="arrow">→</span><div class="node">FastAPI</div><span class="arrow">+</span><div class="node">PostgreSQL</div>
 </div>
 <ul>
 <li>Use environment-specific configuration files without committing secrets.</li>
 <li>Run migrations and tests inside the containerized development workflow.</li>
+<li>Run <code>bash scripts/format.sh</code> for the Docker-backed Ruff, Black, isort and mypy quality gate.</li>
 <li>Use mocked/local adapters for external messaging where appropriate.</li>
 <li>Keep the production image build reproducible from the same Dockerfile family.</li>
 <li>Do not make developers depend on a deployed cloud environment for normal feature development.</li>
@@ -434,7 +437,7 @@ Implementation is underway. Any new requirement discovered during development sh
 <section class="section" id="workitems">
 <h2>13. Complete End-to-End Work Items</h2>
 <span class="status">✓ IMPLEMENTATION IN PROGRESS</span>
-<p>This is the implementation backlog derived from the approved pre-development decisions. WI-1.1 through WI-1.8, WI-2.1 through WI-2.5, and WI-3.1 through WI-3.6 are delivered in the backend; WI-4.1 is now active. Each work item remains outcome-oriented and is completed only after code, tests and required migrations are validated.</p>
+<p>This is the implementation backlog derived from the approved pre-development decisions. WI-1.1 through WI-1.8, WI-2.1 through WI-2.5, WI-3.1 through WI-3.6, WI-4.1 and WI-4.2 are delivered in the backend; WI-4.3 is now active. Each work item remains outcome-oriented and is completed only after code, tests and required migrations are validated.</p>
 <div class="callout"><b>Step-by-step execution rule for every WI:</b>
 <ol>
 <li>Confirm scope and dependencies for the WI and mark the intended status transition.</li>
@@ -469,11 +472,11 @@ Implementation is underway. Any new requirement discovered during development sh
 
 <div class="workitem"><div class="wihead"><div><div class="id">WI-1.6</div><div class="title">Containerize Local Development</div></div><span class="status">✓ DONE</span></div>
 <p>Create Docker images and Docker Compose configuration for the backend, PostgreSQL and required local supporting services. The local workflow should minimize host-specific dependencies and mirror production runtime assumptions without requiring cloud infrastructure.</p>
-<div class="meta"><b>Acceptance criteria (completed):</b> containerized local stack starts with documented commands; database boot + migration path is reproducible; onboarding flow does not require hidden host-specific steps. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> containerized local stack starts with documented commands. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> database boot + migration path is reproducible. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> onboarding flow does not require hidden host-specific steps. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+<div class="meta"><b>Acceptance criteria (completed):</b> containerized local stack starts with documented commands; database boot + migration path is reproducible; onboarding flow does not require hidden host-specific steps. <br><b>Current implementation:</b> separate production and development/test Docker targets, non-root API runtime, standard-library healthcheck, one-shot migration service, PostgreSQL 18-compatible volume layout and API startup without reload. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> containerized local stack starts with documented commands. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> database boot + migration path is reproducible. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> onboarding flow does not require hidden host-specific steps. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
 
 <div class="workitem"><div class="wihead"><div><div class="id">WI-1.7</div><div class="title">Establish Code Quality & Testing Baseline</div></div><span class="status">✓ DONE</span></div>
 <p>Configure Ruff, formatting, type checking, pytest, pre-commit hooks and test conventions. Establish rules for unit tests, integration tests, fixtures, database isolation and external-provider mocking.</p>
-<div class="meta"><b>Acceptance criteria (completed):</b> quality commands are documented and runnable; automated test suite protects delivered behavior; feature slices ship with tests and reproducible validation evidence. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> quality commands are documented and runnable. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> automated test suite protects delivered behavior. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> feature slices ship with tests and reproducible validation evidence. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
+<div class="meta"><b>Acceptance criteria (completed):</b> quality commands are documented and runnable; automated test suite protects delivered behavior; feature slices ship with tests and reproducible validation evidence. <br><b>Current implementation:</b> <code>scripts/format.sh</code> runs Ruff, Black, isort and mypy inside Docker; the test service runs migrations and pytest. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> quality commands are documented and runnable. <b>Step 1 Left:</b> NA. <b>Step 2 Done:</b> automated test suite protects delivered behavior. <b>Step 2 Left:</b> NA. <b>Step 3 Done:</b> feature slices ship with tests and reproducible validation evidence. <b>Step 3 Left:</b> NA. <b>Remaining overall:</b> NA.</div></div>
 
 <div class="workitem"><div class="wihead"><div><div class="id">WI-1.8</div><div class="title">Implement Structured Logging & Correlation</div></div><span class="status">✓ DONE</span></div>
 <p>Define structured application logs and request/job correlation IDs so an administrator action can later be traced through API requests, scheduler jobs, message dispatch and provider responses. Avoid logging secrets or unnecessary personal data.</p>

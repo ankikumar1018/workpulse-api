@@ -142,19 +142,9 @@ uv run pytest tests/test_app.py
 
 ### 10. Code Quality Checks
 
-Run all checks:
+Run all checks inside Docker:
 ```bash
-uv run ruff check .
-uv run black --check app tests
-uv run isort --check app tests
-uv run mypy app
-```
-
-Auto-fix issues:
-```bash
-uv run ruff check --fix .
-uv run black app tests
-uv run isort app tests
+bash scripts/format.sh
 ```
 
 ## Development Workflow

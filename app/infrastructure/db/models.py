@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import enum
 import uuid
+from collections.abc import Callable
 from datetime import date, datetime, time
+from typing import cast
 
 from sqlalchemy import (
     CheckConstraint,
@@ -46,12 +48,19 @@ def enum_values(enum_type: type[enum.StrEnum]) -> tuple[str, ...]:
     return tuple(member.value for member in enum_type)
 
 
+def new_uuid() -> uuid.UUID:
+    """Create a UUIDv7 value while keeping static type checkers happy."""
+
+    uuid7 = cast(Callable[[], uuid.UUID], uuid.__dict__["uuid7"])
+    return uuid7()
+
+
 class Organization(TimestampMixin, Base):
     """Top-level tenant boundary."""
 
     __tablename__ = "organizations"
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     status: Mapped[OrganizationStatus] = mapped_column(
@@ -74,7 +83,7 @@ class User(TimestampMixin, Base):
         CheckConstraint("status IN ('active', 'inactive')", name="ck_users_status"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -91,7 +100,7 @@ class RefreshSession(Base):
 
     __tablename__ = "refresh_sessions"
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -118,7 +127,7 @@ class Project(TimestampMixin, Base):
         UniqueConstraint("organization_id", "id", name="uq_projects_org_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -155,7 +164,7 @@ class Department(TimestampMixin, Base):
         UniqueConstraint("organization_id", "id", name="uq_departments_org_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -193,7 +202,7 @@ class Worker(TimestampMixin, Base):
         UniqueConstraint("organization_id", "id", name="uq_workers_org_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -248,7 +257,7 @@ class WorkItem(TimestampMixin, Base):
         UniqueConstraint("organization_id", "id", name="uq_work_items_org_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -297,7 +306,7 @@ class Template(TimestampMixin, Base):
         UniqueConstraint("organization_id", "id", name="uq_templates_org_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -349,7 +358,7 @@ class Schedule(TimestampMixin, Base):
         UniqueConstraint("organization_id", "id", name="uq_schedules_org_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -407,7 +416,7 @@ class Message(TimestampMixin, Base):
         UniqueConstraint("organization_id", "id", name="uq_messages_org_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -451,7 +460,7 @@ class AuditLog(Base):
 
     __tablename__ = "audit_logs"
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),

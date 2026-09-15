@@ -19,9 +19,7 @@ def to_camel(value: str) -> str:
     if len(parts) == 1:
         return value
 
-    return parts[0].lower() + "".join(
-        part[:1].upper() + part[1:].lower() for part in parts[1:]
-    )
+    return parts[0].lower() + "".join(part[:1].upper() + part[1:].lower() for part in parts[1:])
 
 
 class ResponseStatus(StrEnum):
@@ -63,18 +61,20 @@ class ErrorEnvelope(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
-        json_schema_extra={"example": {
-            "status": ResponseStatus.ERROR,
-            "error": {
-                "code": "VALIDATION_ERROR",
-                "message": "Invalid input",
-                "details": [
-                    {"field": "name", "issue": "Field required"},
-                ],
-            },
-            "timestamp": "2026-08-23T14:22:30.123456Z",
-            "request_id": "req_abc123def456",
-        }},
+        json_schema_extra={
+            "example": {
+                "status": ResponseStatus.ERROR,
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid input",
+                    "details": [
+                        {"field": "name", "issue": "Field required"},
+                    ],
+                },
+                "timestamp": "2026-08-23T14:22:30.123456Z",
+                "request_id": "req_abc123def456",
+            }
+        },
     )
 
 
@@ -89,12 +89,14 @@ class PaginationMetadata(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
-        json_schema_extra={"example": {
-            "total": 150,
-            "limit": 20,
-            "offset": 0,
-            "has_more": True,
-        }},
+        json_schema_extra={
+            "example": {
+                "total": 150,
+                "limit": 20,
+                "offset": 0,
+                "has_more": True,
+            }
+        },
     )
 
 

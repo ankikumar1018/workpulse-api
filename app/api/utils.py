@@ -13,12 +13,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 
-from app.schemas.common import (
-    ListEnvelope,
-    PaginationMetadata,
-    ResponseStatus,
-    SuccessEnvelope,
-)
+from app.schemas.common import ListEnvelope, PaginationMetadata, ResponseStatus, SuccessEnvelope
 
 camelize_re = re.compile(r"[a-z0-9]?_[a-z0-9]")
 
@@ -71,11 +66,16 @@ def camelize(value: Any, **options: Any) -> Any:
 
 def make_success_response(data: Any) -> dict[str, Any]:
     """Build a success response envelope."""
-    return cast(dict[str, Any], camelize(SuccessEnvelope(
-        status=ResponseStatus.SUCCESS,
-        data=data,
-        timestamp=datetime.now(UTC),
-    )))
+    return cast(
+        dict[str, Any],
+        camelize(
+            SuccessEnvelope(
+                status=ResponseStatus.SUCCESS,
+                data=data,
+                timestamp=datetime.now(UTC),
+            )
+        ),
+    )
 
 
 def make_list_response(
@@ -86,17 +86,22 @@ def make_list_response(
 ) -> dict[str, Any]:
     """Build a list response with pagination."""
     has_more = (offset + limit) < total
-    return cast(dict[str, Any], camelize(ListEnvelope(
-        status=ResponseStatus.SUCCESS,
-        data=data,
-        pagination=PaginationMetadata(
-            total=total,
-            limit=limit,
-            offset=offset,
-            has_more=has_more,
+    return cast(
+        dict[str, Any],
+        camelize(
+            ListEnvelope(
+                status=ResponseStatus.SUCCESS,
+                data=data,
+                pagination=PaginationMetadata(
+                    total=total,
+                    limit=limit,
+                    offset=offset,
+                    has_more=has_more,
+                ),
+                timestamp=datetime.now(UTC),
+            )
         ),
-        timestamp=datetime.now(UTC),
-    )))
+    )
 
 
 def generate_request_id() -> str:

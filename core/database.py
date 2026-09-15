@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.infrastructure.db import Base
 from app.infrastructure.db.base import TimestampMixin
@@ -21,11 +20,9 @@ engine = create_async_engine(
 )
 
 # Session factory
-async_session_maker = sessionmaker(
+async_session_maker = async_sessionmaker(
     engine,
-    class_=AsyncSession,
     expire_on_commit=False,
-    autocommit=False,
     autoflush=False,
 )
 

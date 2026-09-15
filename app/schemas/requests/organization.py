@@ -21,10 +21,14 @@ class OrganizationCreateRequest(BaseModel):
         description="URL-safe unique slug",
     )
 
-    model_config = {"json_schema_extra": {"example": {
-        "name": "Acme Interior Design",
-        "slug": "acme-corp",
-    }}}
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "Acme Interior Design",
+                "slug": "acme-corp",
+            }
+        }
+    }
 
 
 class OrganizationUpdateRequest(BaseModel):
@@ -40,9 +44,13 @@ class OrganizationUpdateRequest(BaseModel):
         description="'trialing', 'active', 'past_due', 'canceled', 'expired'",
     )
 
-    model_config = {"json_schema_extra": {"example": {
-        "status": "active",
-    }}}
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "status": "active",
+            }
+        }
+    }
 
 
 __all__ = ["OrganizationCreateRequest", "OrganizationUpdateRequest"]

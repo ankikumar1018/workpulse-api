@@ -127,67 +127,52 @@ tests/             # automated test suite
 
 ### Prerequisites
 
-- Python 3.14+
-- Docker Desktop
-- uv
+- Docker Desktop with Docker Compose v2
 
-Install uv (Windows PowerShell):
+Python, uv, PostgreSQL, and project dependencies are installed inside the
+Docker image. Do not install or run the backend directly on the host.
 
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-Install uv (macOS/Linux):
+### 1) Build the Images
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+docker compose build api
 ```
 
-### 1) Install Dependencies
+The API image is production-focused. The test image contains the development
+tools and is built automatically when needed.
+
+### 2) Start the API
 
 ```bash
-uv sync --group dev
+docker compose up --build -d postgres api
 ```
 
-### 2) Configure Environment
+The API waits for PostgreSQL and migrations, then starts on port `8000`.
 
-Windows (PowerShell):
-
-```powershell
-Copy-Item .env.example .env
-```
-
-macOS/Linux:
+### 3) Run Tests and Quality Checks
 
 ```bash
-cp .env.example .env
+docker compose --profile test run --rm test
+bash scripts/format.sh
 ```
 
-Update `.env` values for local development as needed.
+Both commands run inside Docker. The first runs pytest; the second runs Ruff,
+Black, isort, and mypy.
 
-### 3) Start Database
-
-```bash
-docker compose up -d postgres
-```
-
-### 4) Apply Migrations
-
-```bash
-uv run alembic upgrade head
-```
-
-### 5) Run the API
-
-```bash
-uv run fastapi dev app/main.py --port 8000
-```
-
-### 6) Verify
+### 4) Verify
 
 - API docs: http://127.0.0.1:8000/docs
 - Alternative docs: http://127.0.0.1:8000/redoc
 - Health endpoint: http://127.0.0.1:8000/health
+
+Stop the stack when finished:
+
+```bash
+docker compose down
+```
+
+Add `--volumes` when you intentionally want to remove the local PostgreSQL
+data volume.
 
 ## Developer Workflow
 
@@ -195,49 +180,32 @@ uv run fastapi dev app/main.py --port 8000
 
 ```bash
 # run tests
-uv run pytest
+docker compose --profile test run --rm test
 
-# lint and quality
-uv run ruff check .
-uv run black --check app tests
-uv run isort --check app tests
-uv run mypy app
-
-# auto-fix lint findings
-uv run ruff check --fix .
+# run Ruff, Black, isort, and mypy checks
+bash scripts/format.sh
 ```
 
 ### Common Migration Commands
 
-After changing SQLAlchemy models, run these commands from the backend root. Ensure
-PostgreSQL is running and `DATABASE_URL` points to the target database.
-
-```powershell
-docker compose up -d postgres
-$env:DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/workpulse"
-```
+After changing SQLAlchemy models, run these commands through the API container.
+The container reaches PostgreSQL using the Compose service name `postgres`.
 
 ```bash
 # verify whether model changes need a migration
-uv run alembic check
+docker compose run --rm api alembic check
 
 # generate a migration from the model metadata
-uv run alembic revision --autogenerate -m "Describe change"
+docker compose run --rm api alembic revision --autogenerate -m "Describe change"
 
 # review the generated file in alembic/versions/ before applying it
 
 # apply all pending migrations
-uv run alembic upgrade head
+docker compose run --rm api alembic upgrade head
 
 # rollback one migration
-uv run alembic downgrade -1
+docker compose run --rm api alembic downgrade -1
 ```
-
-On Windows, if `uv run alembic` selects the wrong environment, use
-`.venv\Scripts\alembic.exe` from the backend repository instead.
-
-On macOS/Linux, use `.venv/bin/alembic` if the environment is activated or
-`uv run alembic` resolves to the wrong Python environment.
 
 ## Contribution Guide
 
@@ -249,14 +217,11 @@ On macOS/Linux, use `.venv/bin/alembic` if the environment is activated or
 
 ### Before Opening a PR
 
-Run all checks locally:
+Run the checks before opening a PR:
 
 ```bash
-uv run ruff check .
-uv run black --check app tests
-uv run isort --check app tests
-uv run mypy app
-uv run pytest
+bash scripts/format.sh
+docker compose --profile test run --rm test
 ```
 
 ### PR Expectations
@@ -275,6 +240,8 @@ uv run pytest
 
 - `htmlcov/` is a local coverage artifact and is ignored by Git.
 - Prefer `docker compose` over legacy `docker-compose`.
+- Docker Compose is the supported execution environment for the API, migrations,
+  quality checks, and tests.
 
 ## License
 

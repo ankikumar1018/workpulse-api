@@ -9,14 +9,8 @@ from fastapi import APIRouter, Query, status
 from app.api.deps import CurrentUser, WorkItemCtrl
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.infrastructure.db.models import WorkItem
-from app.schemas import (
-    ListEnvelope,
-    SuccessEnvelope,
-)
-from app.schemas.requests.work_item import (
-    WorkItemCreateRequest,
-    WorkItemUpdateStatusRequest,
-)
+from app.schemas import ListEnvelope, SuccessEnvelope
+from app.schemas.requests.work_item import WorkItemCreateRequest, WorkItemUpdateStatusRequest
 from app.schemas.responses.work_item import WorkItemResponse, WorkItemTransitionResponse
 
 router = APIRouter(prefix="/api/v1", tags=["Work Items"])

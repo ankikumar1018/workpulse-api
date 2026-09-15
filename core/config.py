@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # WhatsApp Business Cloud API settings
+    WHATSAPP_ACCESS_TOKEN: str | None = None
+    WHATSAPP_PHONE_NUMBER_ID: str | None = None
+    WHATSAPP_API_VERSION: str = "v24.0"
+    WHATSAPP_APP_SECRET: str | None = None
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: str | None = None
+
     # CORS settings
     CORS_ORIGINS: list[str] = ["*"]
     CORS_ALLOW_CREDENTIALS: bool = True

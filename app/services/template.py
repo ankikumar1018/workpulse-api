@@ -47,6 +47,8 @@ class TemplateService:
         channel: Channel,
         body: str,
         variable_schema: dict[str, str],
+        provider_template_name: str | None = None,
+        provider_template_language: str | None = None,
     ) -> Template:
         project = await self._get_project(project_id=project_id, organization_id=organization_id)
         if project.status == EntityStatus.ARCHIVED:
@@ -59,6 +61,10 @@ class TemplateService:
         )
         if await self.repository.find_by_name(project_id=project_id, name=name, channel=channel):
             raise ConflictError("A template with this name and channel already exists")
+        if bool(provider_template_name) != bool(provider_template_language):
+            raise UnprocessableEntityError(
+                "Provider template name and language must be configured together"
+            )
         template = await self.repository.create(
             {
                 "organization_id": organization_id,
@@ -67,6 +73,8 @@ class TemplateService:
                 "channel": channel,
                 "body": body,
                 "variable_schema_json": variable_schema,
+                "provider_template_name": provider_template_name,
+                "provider_template_language": provider_template_language,
             }
         )
         await self._audit(
@@ -152,6 +160,16 @@ class TemplateService:
             channel=channel,
         ):
             raise ConflictError("A template with this name and channel already exists")
+        provider_template_name = update_data.get(
+            "provider_template_name", template.provider_template_name
+        )
+        provider_template_language = update_data.get(
+            "provider_template_language", template.provider_template_language
+        )
+        if bool(provider_template_name) != bool(provider_template_language):
+            raise UnprocessableEntityError(
+                "Provider template name and language must be configured together"
+            )
         self._validate_definition(
             organization_id=organization_id,
             name=name,

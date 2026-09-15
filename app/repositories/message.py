@@ -49,6 +49,20 @@ class MessageRepository(BaseRepository[Message]):
         )
         return result.scalar_one_or_none()
 
+    async def find_by_provider_message_id(
+        self,
+        *,
+        provider_name: str,
+        provider_message_id: str,
+    ) -> Message | None:
+        result = await self.session.execute(
+            select(Message).where(
+                Message.provider_name == provider_name,
+                Message.provider_message_id == provider_message_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def create_idempotent(self, message_data: dict[str, Any]) -> Message:
         existing = await self.find_by_dispatch_key(
             organization_id=message_data["organization_id"],

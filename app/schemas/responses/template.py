@@ -20,6 +20,8 @@ class TemplateResponse(BaseModel):
     channel: str
     body: str
     variable_schema: dict[str, str]
+    provider_template_name: str | None
+    provider_template_language: str | None
     status: str
     created_at: datetime
     updated_at: datetime

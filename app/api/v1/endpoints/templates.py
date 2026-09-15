@@ -31,6 +31,8 @@ def to_template_response(template: Template) -> TemplateResponse:
         channel=template.channel.value,
         body=template.body,
         variable_schema=template.variable_schema_json or {},
+        provider_template_name=template.provider_template_name,
+        provider_template_language=template.provider_template_language,
         status=template.status.value,
         created_at=template.created_at,
         updated_at=template.updated_at,
@@ -58,6 +60,8 @@ async def create_template(
         channel=Channel(request.channel),
         body=request.body,
         variable_schema=request.variable_schema,
+        provider_template_name=request.provider_template_name,
+        provider_template_language=request.provider_template_language,
     )
     return make_success_response(to_template_response(template))
 

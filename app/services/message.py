@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from app.api.errors import NotFoundError, UnprocessableEntityError
 from app.domain.enums import Channel, DeliveryStatus
 from app.domain.idempotency import build_message_dispatch_key
 from app.domain.message import InvalidMessageTransitionError, Message as MessageDomain
+from app.domain.message_provider import (
+    MessageProviderError,
+    OutboundMessage,
+    OutboundMessageProvider,
+)
 from app.infrastructure.db.models import Message
 from app.repositories.message import MessageHistoryRepository, MessageRepository
 
@@ -124,6 +130,74 @@ class MessageService:
                 occurred_at=occurred_at,
             )
         return message
+
+    async def dispatch_message(
+        self,
+        *,
+        message_id: UUID,
+        organization_id: UUID,
+        provider: OutboundMessageProvider,
+    ) -> Message:
+        """Submit one queued message and retain the provider outcome in its lifecycle."""
+        message = await self.transition_message(
+            message_id=message_id,
+            organization_id=organization_id,
+            new_status=DeliveryStatus.PROCESSING,
+        )
+        try:
+            result = await provider.send(cast(OutboundMessage, message))
+        except MessageProviderError as error:
+            return await self.transition_message(
+                message_id=message.id,
+                organization_id=organization_id,
+                new_status=DeliveryStatus.FAILED,
+                provider_name=getattr(provider, "provider_name", None),
+                error_code=error.error_code,
+                error_message=str(error),
+            )
+        return await self.transition_message(
+            message_id=message.id,
+            organization_id=organization_id,
+            new_status=DeliveryStatus.SENT,
+            provider_name=result.provider_name,
+            provider_message_id=result.provider_message_id,
+        )
+
+    async def apply_provider_status(
+        self,
+        *,
+        provider_name: str,
+        provider_message_id: str,
+        new_status: DeliveryStatus,
+        error_code: str | None = None,
+    ) -> Message | None:
+        """Apply a webhook status when it advances the existing lifecycle."""
+        message = await self.repository.find_by_provider_message_id(
+            provider_name=provider_name,
+            provider_message_id=provider_message_id,
+        )
+        if message is None or message.delivery_status == new_status:
+            return message
+        domain_message = MessageDomain(
+            id=message.id,
+            organization_id=message.organization_id,
+            worker_id=message.worker_id,
+            channel=message.channel,
+            recipient_phone_number=message.recipient_phone_number,
+            rendered_body=message.rendered_body,
+            dispatch_key=message.dispatch_key,
+            delivery_status=message.delivery_status,
+        )
+        if not domain_message.can_transition_to(new_status):
+            return message
+        return await self.transition_message(
+            message_id=message.id,
+            organization_id=message.organization_id,
+            new_status=new_status,
+            provider_name=provider_name,
+            provider_message_id=provider_message_id,
+            error_code=error_code,
+        )
 
     async def list_history(
         self,

@@ -18,6 +18,8 @@ class TemplateCreateRequest(BaseModel):
     channel: TemplateChannel = "whatsapp"
     body: str = Field(min_length=1, max_length=10000)
     variable_schema: dict[str, str] = Field(default_factory=dict)
+    provider_template_name: str | None = Field(None, min_length=1, max_length=512)
+    provider_template_language: str | None = Field(None, min_length=2, max_length=32)
 
     @field_validator("variable_schema")
     @classmethod
@@ -35,6 +37,8 @@ class TemplateUpdateRequest(BaseModel):
     channel: TemplateChannel | None = None
     body: str | None = Field(None, min_length=1, max_length=10000)
     variable_schema: dict[str, str] | None = None
+    provider_template_name: str | None = Field(None, min_length=1, max_length=512)
+    provider_template_language: str | None = Field(None, min_length=2, max_length=32)
 
     @field_validator("variable_schema")
     @classmethod

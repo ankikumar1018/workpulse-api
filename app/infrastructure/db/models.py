@@ -356,6 +356,8 @@ class Template(TimestampMixin, Base):
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     variable_schema_json: Mapped[dict | None] = mapped_column(JSONB)
+    provider_template_name: Mapped[str | None] = mapped_column(String(512))
+    provider_template_language: Mapped[str | None] = mapped_column(String(32))
     status: Mapped[EntityStatus] = mapped_column(
         Enum(EntityStatus, name="entity_status", values_callable=enum_values),
         nullable=False,

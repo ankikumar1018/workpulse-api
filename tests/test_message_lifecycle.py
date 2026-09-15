@@ -9,6 +9,7 @@ from app.domain.idempotency import (
     build_communication_job_key,
     build_message_dispatch_key,
 )
+from app.domain.message_provider import MessageProviderError, ProviderSendResult
 from app.infrastructure.db.models import Message as MessageModel, MessageStatusHistory
 from app.repositories.message import MessageHistoryRepository
 from app.services.message import MessageService
@@ -45,6 +46,17 @@ class FakeMessageRepository:
                 for message in self.messages
                 if message.organization_id == organization_id
                 and message.dispatch_key == dispatch_key
+            ),
+            None,
+        )
+
+    async def find_by_provider_message_id(self, *, provider_name, provider_message_id):
+        return next(
+            (
+                message
+                for message in self.messages
+                if message.provider_name == provider_name
+                and message.provider_message_id == provider_message_id
             ),
             None,
         )
@@ -101,6 +113,18 @@ def make_message(*, organization_id=None):
         dispatch_key="project-1:daily-status:worker-1",
         delivery_status=DeliveryStatus.QUEUED,
     )
+
+
+class FakeProvider:
+    provider_name = "whatsapp_cloud"
+
+    def __init__(self, error: MessageProviderError | None = None):
+        self.error = error
+
+    async def send(self, _message):
+        if self.error:
+            raise self.error
+        return ProviderSendResult("whatsapp_cloud", "wamid.123")
 
 
 def test_idempotency_keys_are_stable_and_distinct_by_logical_execution():
@@ -195,3 +219,73 @@ async def test_message_service_rejects_invalid_transition_without_history():
 
     assert "Cannot transition message" in exception_info.value.message
     assert repository.history == []
+
+
+@pytest.mark.asyncio
+async def test_dispatch_persists_provider_identity_and_lifecycle_history():
+    message = make_message()
+    repository = FakeMessageRepository([message])
+    service = MessageService(repository, FakeHistoryRepository(repository))
+
+    dispatched = await service.dispatch_message(
+        message_id=message.id,
+        organization_id=message.organization_id,
+        provider=FakeProvider(),
+    )
+
+    assert dispatched.delivery_status == DeliveryStatus.SENT
+    assert dispatched.provider_name == "whatsapp_cloud"
+    assert dispatched.provider_message_id == "wamid.123"
+    assert [entry.new_status for entry in repository.history] == [
+        DeliveryStatus.PROCESSING,
+        DeliveryStatus.SENT,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_records_classified_provider_failure():
+    message = make_message()
+    repository = FakeMessageRepository([message])
+    service = MessageService(repository, FakeHistoryRepository(repository))
+
+    failed = await service.dispatch_message(
+        message_id=message.id,
+        organization_id=message.organization_id,
+        provider=FakeProvider(MessageProviderError("Rate limited", error_code="WHATSAPP_HTTP_429")),
+    )
+
+    assert failed.delivery_status == DeliveryStatus.FAILED
+    assert failed.error_code == "WHATSAPP_HTTP_429"
+    assert repository.history[-1].new_status == DeliveryStatus.FAILED
+
+
+@pytest.mark.asyncio
+async def test_provider_status_updates_are_idempotent_and_order_safe():
+    message = make_message()
+    message.delivery_status = DeliveryStatus.SENT
+    message.provider_name = "whatsapp_cloud"
+    message.provider_message_id = "wamid.123"
+    repository = FakeMessageRepository([message])
+    service = MessageService(repository, FakeHistoryRepository(repository))
+
+    delivered = await service.apply_provider_status(
+        provider_name="whatsapp_cloud",
+        provider_message_id="wamid.123",
+        new_status=DeliveryStatus.DELIVERED,
+    )
+    duplicate = await service.apply_provider_status(
+        provider_name="whatsapp_cloud",
+        provider_message_id="wamid.123",
+        new_status=DeliveryStatus.DELIVERED,
+    )
+    out_of_order = await service.apply_provider_status(
+        provider_name="whatsapp_cloud",
+        provider_message_id="wamid.123",
+        new_status=DeliveryStatus.FAILED,
+    )
+
+    assert delivered is message
+    assert duplicate is message
+    assert out_of_order is message
+    assert message.delivery_status == DeliveryStatus.DELIVERED
+    assert len(repository.history) == 1

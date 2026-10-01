@@ -83,3 +83,12 @@ def test_camelize_options():
         "requestId": "req-1",
         "nestedData": {"createdAt": "now"},
     }
+
+
+def test_response_camelization_can_preserve_user_defined_mapping_keys():
+    result = camelize(
+        {"variable_schema": {"worker_name": "string"}},
+        ignore_fields={"variable_schema", "variableSchema"},
+    )
+
+    assert result == {"variableSchema": {"worker_name": "string"}}

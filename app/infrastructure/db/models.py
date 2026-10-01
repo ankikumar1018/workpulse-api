@@ -15,6 +15,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     Text,
@@ -297,6 +298,13 @@ class WorkItemStatusHistory(Base):
     """Append-only work-item status transition history."""
 
     __tablename__ = "work_item_status_history"
+    __table_args__ = (
+        Index(
+            "ix_work_item_status_history_work_item_id_created_at",
+            "work_item_id",
+            "created_at",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(
@@ -604,6 +612,11 @@ class MessageStatusHistory(Base):
 
     __tablename__ = "message_status_history"
     __table_args__ = (
+        Index(
+            "ix_message_status_history_message_id_created_at",
+            "message_id",
+            "created_at",
+        ),
         ForeignKeyConstraint(
             ["organization_id", "message_id"],
             ["messages.organization_id", "messages.id"],

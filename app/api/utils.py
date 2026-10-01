@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app.schemas.common import ListEnvelope, PaginationMetadata, ResponseStatus, SuccessEnvelope
 
 camelize_re = re.compile(r"[a-z0-9]?_[a-z0-9]")
+PRESERVED_MAPPING_FIELDS = {"variable_schema", "variableSchema"}
 
 
 def underscore_to_camel(match: re.Match[str]) -> str:
@@ -73,7 +74,8 @@ def make_success_response(data: Any) -> dict[str, Any]:
                 status=ResponseStatus.SUCCESS,
                 data=data,
                 timestamp=datetime.now(UTC),
-            )
+            ),
+            ignore_fields=PRESERVED_MAPPING_FIELDS,
         ),
     )
 
@@ -99,7 +101,8 @@ def make_list_response(
                     has_more=has_more,
                 ),
                 timestamp=datetime.now(UTC),
-            )
+            ),
+            ignore_fields=PRESERVED_MAPPING_FIELDS,
         ),
     )
 

@@ -8,6 +8,7 @@ Create Date: 2026-09-15 00:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -18,6 +19,15 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    work_status = postgresql.ENUM(
+        "open",
+        "in_progress",
+        "blocked",
+        "done",
+        "cancelled",
+        name="work_status",
+        create_type=False,
+    )
     op.create_table(
         "work_item_status_history",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -25,12 +35,12 @@ def upgrade() -> None:
         sa.Column("work_item_id", sa.Uuid(), nullable=False),
         sa.Column(
             "previous_status",
-            sa.Enum("open", "in_progress", "blocked", "done", "cancelled", name="work_status"),
+            work_status,
             nullable=False,
         ),
         sa.Column(
             "new_status",
-            sa.Enum("open", "in_progress", "blocked", "done", "cancelled", name="work_status"),
+            work_status,
             nullable=False,
         ),
         sa.Column("actor_user_id", sa.Uuid(), nullable=True),

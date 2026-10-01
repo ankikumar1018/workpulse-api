@@ -111,7 +111,7 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <li><code>app/domain/</code> — entities, value objects and business rules.</li>
 <li><code>app/services/</code> — use cases and application orchestration.</li>
 <li><code>app/repositories/</code> — persistence/data-access layer.</li>
-<li><code>app/infrastructure/</code> — PostgreSQL, Cloud Tasks, WhatsApp and external adapters.</li>
+<li><code>app/infrastructure/</code> — PostgreSQL, queue adapters, WhatsApp and external providers.</li>
 <li><code>app/workers/</code> — asynchronous task/message execution entry points.</li>
 <li><code>tests/</code> — unit, integration and provider/contract tests.</li>
 <li><code>alembic/</code> — versioned database migrations.</li>
@@ -143,7 +143,7 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <tr><td>Scheduling</td><td>Owns schedule calculation and execution</td><td>Configures schedules through API</td></tr>
 <tr><td>Messaging</td><td>Owns channel abstraction, provider integration and delivery state</td><td>Displays/configures messaging</td></tr>
 <tr><td>API contract</td><td>Publishes versioned OpenAPI contract</td><td>Consumes the contract</td></tr>
-<tr><td>Deployment</td><td>Cloud Run + supporting GCP services</td><td>Independent frontend deployment</td></tr>
+<tr><td>Deployment</td><td>Managed container runtime and queue services on the selected cloud provider</td><td>Independent frontend deployment and replaceable infrastructure adapters</td></tr>
 <tr><td>Release cadence</td><td>Independent</td><td>Independent, subject to API compatibility</td></tr>
 </table>
 
@@ -193,10 +193,10 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <tr><td>Backend completed</td><td><span class="done">WI-4.1 through WI-5.5</span></td><td>Work-item lifecycle, status history, priority/overdue filters, the provider-agnostic message domain, tenant-scoped templates, deterministic rendering, delivery history and idempotent message creation are implemented and tested.</td></tr>
 <tr><td>WhatsApp provider</td><td><span class="tag">Code complete; live setup pending</span></td><td>Cloud API dispatch, provider template mapping, signed webhooks, idempotent delivery updates and classified failures are implemented and mock-validated; account credentials and live connectivity are not configured.</td></tr>
 <tr><td>Stage 7 scheduling</td><td><span class="done">WI-7.1 and WI-7.2 done</span></td><td>Tenant-scoped schedule create/list/get/update and activate/pause APIs are implemented; schedule activation computes the next UTC execution while honoring local timezone windows and DST transitions.</td></tr>
-<tr><td>Cloud Tasks adapter</td><td><span class="done">WI-7.4 done</span></td><td>Authenticated HTTP task creation, deterministic logical-job task names, task timeout, queue retry/rate controls and queue-error isolation are implemented and tested without requiring live GCP credentials.</td></tr>
+<tr><td>Queue adapter boundary</td><td><span class="done">WI-7.4 done</span></td><td>The scheduling layer depends on a provider-neutral queue contract. A Cloud Tasks adapter currently provides authenticated HTTP task creation, deterministic logical-job task names, timeout, retry/rate controls and queue-error isolation; AWS or another queue provider can be added without changing domain or job state.</td></tr>
 <tr><td>Current active item</td><td><span class="tag">WI-7.5 Message Job Processor</span></td><td>Next: revalidate live schedule and recipient state, suppress stale jobs explicitly, render fresh content and dispatch through the selected channel adapter.</td></tr>
 </table>
-<div class="callout"><b>Current validation note:</b> the full backend suite passes 113 tests; queue adapter SDK construction, Ruff, Black, isort and mypy pass. Stage 6 live provider acceptance and live Cloud Tasks acceptance remain blocked on secure external credentials.</div>
+<div class="callout"><b>Current validation note:</b> the full backend suite passes 113 tests; queue adapter SDK construction, Ruff, Black, isort and mypy pass. Stage 6 live provider acceptance and live queue-provider acceptance remain blocked on secure external credentials.</div>
 </section>
 
 <section class="section" id="scope">
@@ -265,7 +265,7 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <div class="node">Next.js + TypeScript</div><span class="arrow">→ HTTPS/JSON →</span><div class="node">FastAPI</div><span class="arrow">→</span><div class="node">Domain/Application</div><span class="arrow">→</span><div class="node">PostgreSQL</div>
 </div>
 <div class="flow">
-<div class="node">Scheduler</div><span class="arrow">→</span><div class="node">Cloud Tasks</div><span class="arrow">→</span><div class="node">Message Processor</div><span class="arrow">→</span><div class="node">Channel Adapter</div>
+<div class="node">Scheduler</div><span class="arrow">→</span><div class="node">Queue Adapter</div><span class="arrow">→</span><div class="node">Message Processor</div><span class="arrow">→</span><div class="node">Channel Adapter</div>
 </div>
 <table><tr><th>Layer</th><th>Selection</th><th>Reason</th></tr>
 <tr><td>Backend</td><td>Python + FastAPI</td><td>API-first, typed contracts, OpenAPI, external I/O/webhooks.</td></tr>
@@ -274,14 +274,14 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <tr><td>Database</td><td>PostgreSQL</td><td>Strong fit for relational tenant/project/work/message data.</td></tr>
 <tr><td>Migrations</td><td>Alembic</td><td>Versioned schema evolution.</td></tr>
 <tr><td>Web</td><td>Next.js + TypeScript</td><td>Modern admin client consuming the public API.</td></tr>
-<tr><td>Cloud</td><td>GCP</td><td>Cloud Run + Cloud Tasks is a clean fit for this workload.</td></tr>
-<tr><td>Compute</td><td>Cloud Run</td><td>Container-first, stateless API/webhook workloads.</td></tr>
-<tr><td>Scheduling</td><td>Cloud Tasks</td><td>Delayed/retried HTTP execution without introducing a task framework.</td></tr>
-<tr><td>Storage</td><td>Cloud Storage</td><td>Future attachments/documents; not primary business storage.</td></tr>
+<tr><td>Cloud</td><td>Provider decision open</td><td>GCP Cloud Tasks is the current adapter; AWS or another managed queue/runtime can be selected without changing domain contracts.</td></tr>
+<tr><td>Compute</td><td>Managed container runtime</td><td>Container-first, stateless API/webhook workloads.</td></tr>
+<tr><td>Scheduling</td><td>Provider-neutral queue contract</td><td>Delayed/retried HTTP execution through a replaceable infrastructure adapter.</td></tr>
+<tr><td>Storage</td><td>Managed object storage</td><td>Future attachments/documents; not primary business storage.</td></tr>
 <tr><td>Secrets</td><td>Secret Manager</td><td>Provider/database/application secrets.</td></tr>
 <tr><td>Events</td><td>None in MVP</td><td>Add Pub/Sub only when independent consumers justify it.</td></tr>
 </table>
-<div class="callout warning"><b>Architecture guardrail:</b> The core domain must not depend directly on GCP, Cloud Tasks, WhatsApp, or Next.js. Infrastructure adapters sit outside the domain/application layer.</div>
+<div class="callout warning"><b>Architecture guardrail:</b> The core domain must not depend directly on a cloud provider, queue vendor, WhatsApp, or Next.js. Infrastructure adapters sit outside the domain/application layer.</div>
 </section>
 
 <section class="section" id="messaging">
@@ -311,7 +311,7 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <p>Scheduling must create logical communication jobs; infrastructure executes them. A queued task is never treated as proof that a message was sent.</p>
 <table><tr><th>Concern</th><th>Decision</th></tr>
 <tr><td>Time window</td><td>Start time + end time + interval + timezone.</td></tr>
-<tr><td>Execution</td><td>Cloud Tasks invokes an authenticated internal job endpoint.</td></tr>
+<tr><td>Execution</td><td>The selected queue adapter invokes an authenticated internal job endpoint.</td></tr>
 <tr><td>Freshness</td><td>Processor evaluates current work/worker/schedule state at execution time.</td></tr>
 <tr><td>Retry</td><td>Transient errors retry; permanent errors become failed.</td></tr>
 <tr><td>Duplicate protection</td><td>Database-backed logical job/message idempotency.</td></tr>
@@ -391,10 +391,10 @@ footer{color:var(--muted);text-align:center;margin-top:30px;font-size:12px}
 <tr><td>2. Identity & Core Data</td><td>JWT auth, users, admin-only authorization, organizations, projects, departments, workers and primary contacts.</td></tr>
 <tr><td>3. Work & Messaging Domain</td><td>Work items, statuses, templates, message lifecycle and channel abstraction.</td></tr>
 <tr><td>4. WhatsApp</td><td>Provider integration, templates, sending, webhooks, delivery and failure handling.</td></tr>
-<tr><td>5. Scheduling</td><td>Schedules, logical jobs, Cloud Tasks integration, retries, rate limits and duplicate protection.</td></tr>
+<tr><td>5. Scheduling</td><td>Schedules, logical jobs, queue-adapter integration, retries, rate limits and duplicate protection.</td></tr>
 <tr><td>6. Web Application</td><td>Complete Next.js administrative experience using only public APIs.</td></tr>
 <tr><td>7. Quality</td><td>Unit, integration, E2E, security, failure and load testing.</td></tr>
-<tr><td>8. DevOps & Go-Live</td><td>GCP, Cloud Run, Cloud SQL, Cloud Tasks, secrets, CI/CD, monitoring, backups and production launch.</td></tr>
+<tr><td>8. DevOps & Go-Live</td><td>Selected cloud runtime and queue, managed PostgreSQL, secrets, CI/CD, monitoring, backups and production launch.</td></tr>
 </table>
 </section>
 
@@ -609,7 +609,7 @@ Implementation is underway. Any new requirement discovered during development sh
 
 <div class="workitem"><div class="wihead"><div><div class="id">WI-7.4</div><div class="title">Integrate Cloud Tasks</div></div><span class="status">✓ DONE</span></div>
 <p>Introduce the Cloud Tasks adapter that schedules authenticated HTTP execution against the message processor. Configure retries, timeouts and queue-level rate controls. This integration belongs outside the scheduling domain.</p>
-<div class="meta"><b>Acceptance criteria:</b> adapter enqueues authenticated task requests with retry/timeout controls; queue failures do not break logical job consistency; adapter integration remains outside domain logic. <br><b>Current done:</b> Provider-neutral queue contracts, deterministic task names derived from logical job IDs, OIDC-authenticated HTTP payloads, task dispatch deadlines, queue retry/rate controls and classified queue errors are implemented and mock/SDK validated. Live GCP credentials are not configured. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> authenticated task requests with retry and timeout controls are implemented. <b>Step 2 Done:</b> queue failures raise an infrastructure error without mutating logical job state. <b>Step 3 Done:</b> the adapter and configuration remain outside scheduling/domain logic.</div></div>
+<div class="meta"><b>Acceptance criteria:</b> adapter enqueues authenticated task requests with retry/timeout controls; queue failures do not break logical job consistency; adapter integration remains outside domain logic. <br><b>Current done:</b> The provider-neutral queue contract is implemented, with Cloud Tasks isolated as an optional infrastructure adapter. Deterministic task names, OIDC-authenticated HTTP payloads, task deadlines, queue retry/rate controls and classified queue errors are mock/SDK validated. The provider decision remains open. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> authenticated task requests with retry and timeout controls are implemented in the current adapter. <b>Step 2 Done:</b> queue failures raise an infrastructure error without mutating logical job state. <b>Step 3 Done:</b> adapter-specific dependencies and configuration remain outside scheduling/domain logic.</div></div>
 
 <div class="workitem"><div class="wihead"><div><div class="id">WI-7.5</div><div class="title">Implement Message Job Processor</div></div><span class="tag">Execution</span></div>
 <p>At execution time, re-check schedule status, project status, worker/primary-contact status, contact validity, consent and current work state. Render the message using fresh data and dispatch it through the selected channel adapter.</p>
@@ -673,19 +673,19 @@ Implementation is underway. Any new requirement discovered during development sh
 
 <h3>Stage 10 — DevOps, Cloud & Go-Live</h3>
 <!-- WI-10.x items are intentionally not marked DONE yet; cloud/deployment work is deferred to final stage. -->
-<div class="workitem"><div class="wihead"><div><div class="id">WI-10.1</div><div class="title">Create GCP Environments</div></div><span class="tag">DevOps</span></div>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.1</div><div class="title">Create Cloud Environments</div></div><span class="tag">DevOps</span></div>
 <p>Create separate development/staging/production environments and enable only required managed services. Establish naming, billing, IAM ownership and environment configuration standards.</p>
 <div class="meta"><b>Acceptance criteria:</b> dev/staging/prod projects are isolated with controlled IAM boundaries; required services are enabled with least privilege; billing, naming and config standards are documented and enforced. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> dev/staging/prod projects are isolated with controlled IAM boundaries. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> required services are enabled with least privilege. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> billing, naming and config standards are documented and enforced.</div></div>
 
-<div class="workitem"><div class="wihead"><div><div class="id">WI-10.2</div><div class="title">Configure Cloud SQL</div></div><span class="tag">DevOps</span></div>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.2</div><div class="title">Configure Managed PostgreSQL</div></div><span class="tag">DevOps</span></div>
 <p>Provision production PostgreSQL with appropriate sizing, connectivity, encryption, backups and operational settings. Validate application migrations and connection behavior in staging first.</p>
-<div class="meta"><b>Acceptance criteria:</b> Cloud SQL instances are provisioned with secure connectivity and encryption; backup/restore procedures are tested; migration and connection behavior are validated in staging before prod cutover. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> Cloud SQL instances are provisioned with secure connectivity and encryption. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> backup/restore procedures are tested. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> migration and connection behavior are validated in staging before prod cutover.</div></div>
+<div class="meta"><b>Acceptance criteria:</b> managed PostgreSQL is provisioned with secure connectivity and encryption; backup/restore procedures are tested; migration and connection behavior are validated in staging before prod cutover. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> managed PostgreSQL is provisioned with secure connectivity and encryption. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> backup/restore procedures are tested. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> migration and connection behavior are validated in staging before prod cutover.</div></div>
 
-<div class="workitem"><div class="wihead"><div><div class="id">WI-10.3</div><div class="title">Deploy Cloud Run Services</div></div><span class="tag">DevOps</span></div>
-<p>Deploy the containerized backend using Cloud Run with production configuration, health checks, scaling settings, service accounts and secure connectivity to managed dependencies.</p>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.3</div><div class="title">Deploy Container Services</div></div><span class="tag">DevOps</span></div>
+<p>Deploy the containerized backend using the selected managed runtime with production configuration, health checks, scaling settings, service accounts and secure connectivity to managed dependencies.</p>
 <div class="meta"><b>Acceptance criteria:</b> versioned immutable image deployment is automated; runtime config, health probes and scaling are environment-correct; service accounts and network connectivity follow least-privilege policy. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> versioned immutable image deployment is automated. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> runtime config, health probes and scaling are environment-correct. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> service accounts and network connectivity follow least-privilege policy.</div></div>
 
-<div class="workitem"><div class="wihead"><div><div class="id">WI-10.4</div><div class="title">Configure Production Cloud Tasks</div></div><span class="tag">DevOps</span></div>
+<div class="workitem"><div class="wihead"><div><div class="id">WI-10.4</div><div class="title">Configure Production Queue</div></div><span class="tag">DevOps</span></div>
 <p>Create authenticated production queues with retry, timeout, rate and failure policies. Verify that task requests can reach only the intended internal execution endpoint.</p>
 <div class="meta"><b>Acceptance criteria:</b> production queues are configured with authenticated invocation and bounded retries; queue policies align with throughput and reliability targets; endpoint access is restricted to trusted task identities. <br><b>Current done:</b> NA. <br><b>Step-wise status:</b> <b>Step 1 Done:</b> NA. <b>Step 1 Left:</b> production queues are configured with authenticated invocation and bounded retries. <b>Step 2 Done:</b> NA. <b>Step 2 Left:</b> queue policies align with throughput and reliability targets. <b>Step 3 Done:</b> NA. <b>Step 3 Left:</b> endpoint access is restricted to trusted task identities.</div></div>
 

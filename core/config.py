@@ -44,19 +44,6 @@ class Settings(BaseSettings):
     WHATSAPP_APP_SECRET: str | None = None
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: str | None = None
 
-    # Google Cloud Tasks settings
-    GCP_PROJECT_ID: str | None = None
-    CLOUD_TASKS_LOCATION: str = "us-central1"
-    CLOUD_TASKS_QUEUE: str = "communication-jobs"
-    CLOUD_TASKS_TARGET_URL: str | None = None
-    CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL: str | None = None
-    CLOUD_TASKS_AUDIENCE: str | None = None
-    CLOUD_TASKS_TIMEOUT_SECONDS: int = 30
-    CLOUD_TASKS_MAX_ATTEMPTS: int = 5
-    CLOUD_TASKS_MAX_RETRY_SECONDS: int = 3600
-    CLOUD_TASKS_MAX_RETRY_DOUBLINGS: int = 5
-    CLOUD_TASKS_MAX_CONCURRENT_DISPATCHES: int | None = None
-
     # CORS settings
     CORS_ORIGINS: list[str] = ["*"]
     CORS_ALLOW_CREDENTIALS: bool = True

@@ -5,8 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.domain.job_queue import JobQueueError, QueueTaskRequest
-from app.infrastructure.queues.cloud_tasks import CloudTasksQueue
-from core.config import Settings
+from app.infrastructure.queues.cloud_tasks import CloudTasksConfig, CloudTasksQueue
 
 
 class FakeCloudTasksClient:
@@ -23,20 +22,19 @@ class FakeCloudTasksClient:
         self.updated.append(queue)
 
 
-def queue_settings() -> Settings:
-    return Settings(
-        _env_file=None,
-        GCP_PROJECT_ID="workpulse-prod",
-        CLOUD_TASKS_LOCATION="europe-west1",
-        CLOUD_TASKS_QUEUE="communication-jobs",
-        CLOUD_TASKS_TARGET_URL="https://api.example.com/internal/tasks/communication",
-        CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL="tasks@workpulse-prod.iam.gserviceaccount.com",
-        CLOUD_TASKS_AUDIENCE="https://api.example.com",
-        CLOUD_TASKS_TIMEOUT_SECONDS=45,
-        CLOUD_TASKS_MAX_ATTEMPTS=7,
-        CLOUD_TASKS_MAX_RETRY_SECONDS=900,
-        CLOUD_TASKS_MAX_RETRY_DOUBLINGS=4,
-        CLOUD_TASKS_MAX_CONCURRENT_DISPATCHES=12,
+def queue_config() -> CloudTasksConfig:
+    return CloudTasksConfig(
+        project_id="workpulse-prod",
+        location="europe-west1",
+        queue="communication-jobs",
+        target_url="https://api.example.com/internal/tasks/communication",
+        service_account_email="tasks@workpulse-prod.iam.gserviceaccount.com",
+        audience="https://api.example.com",
+        timeout_seconds=45,
+        max_attempts=7,
+        max_retry_seconds=900,
+        max_retry_doublings=4,
+        max_concurrent_dispatches=12,
     )
 
 
@@ -49,7 +47,7 @@ async def test_cloud_tasks_enqueue_builds_stable_authenticated_request():
         built_tasks.append(kwargs)
         return kwargs
 
-    queue = CloudTasksQueue(queue_settings(), client, task_factory=task_factory)
+    queue = CloudTasksQueue(queue_config(), client, task_factory=task_factory)
     request = QueueTaskRequest(
         job_id=uuid4(),
         organization_id=uuid4(),
@@ -80,7 +78,7 @@ async def test_cloud_tasks_configures_retry_and_rate_controls():
         queue_values.append(kwargs)
         return kwargs
 
-    queue = CloudTasksQueue(queue_settings(), client, queue_factory=queue_factory)
+    queue = CloudTasksQueue(queue_config(), client, queue_factory=queue_factory)
 
     await queue.configure_queue()
 
@@ -97,9 +95,7 @@ async def test_cloud_tasks_failure_is_reported_without_mutating_logical_job():
         def create_task(self, *, parent, task):  # noqa: ARG002
             raise RuntimeError("queue unavailable")
 
-    queue = CloudTasksQueue(
-        queue_settings(), RejectingClient(), task_factory=lambda **kwargs: kwargs
-    )
+    queue = CloudTasksQueue(queue_config(), RejectingClient(), task_factory=lambda **kwargs: kwargs)
 
     with pytest.raises(JobQueueError, match="rejected"):
         await queue.enqueue(

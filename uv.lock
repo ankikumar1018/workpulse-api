@@ -1855,7 +1855,6 @@ dependencies = [
     { name = "alembic" },
     { name = "bcrypt" },
     { name = "fastapi", extra = ["standard"] },
-    { name = "google-cloud-tasks" },
     { name = "httpx" },
     { name = "passlib", extra = ["bcrypt"] },
     { name = "psycopg", extra = ["binary"] },
@@ -1872,6 +1871,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+cloud-tasks = [
+    { name = "google-cloud-tasks" },
+]
 dev = [
     { name = "black" },
     { name = "httpx2" },
@@ -1914,7 +1916,7 @@ requires-dist = [
     { name = "bcrypt", specifier = "==5.0.0" },
     { name = "black", marker = "extra == 'dev'", specifier = "==26.5.1" },
     { name = "fastapi", extras = ["standard"], specifier = "==0.141.1" },
-    { name = "google-cloud-tasks", specifier = "==2.21.0" },
+    { name = "google-cloud-tasks", marker = "extra == 'cloud-tasks'", specifier = "==2.21.0" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "httpx2", marker = "extra == 'dev'", specifier = "==2.12.0" },
     { name = "httpx2", marker = "extra == 'test'", specifier = "==2.12.0" },
@@ -1944,7 +1946,7 @@ requires-dist = [
     { name = "types-pytz", marker = "extra == 'dev'", specifier = "==2026.3.1.20260727" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.32.1" },
 ]
-provides-extras = ["dev", "test"]
+provides-extras = ["cloud-tasks", "dev", "test"]
 
 [package.metadata.requires-dev]
 dev = [

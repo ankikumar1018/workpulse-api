@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date
 from typing import Any
@@ -44,6 +46,9 @@ class MessageJobProcessor:
         worker_repository: Any,
         work_item_repository: Any,
         template_service: Any,
+        rate_limiter: Any | None = None,
+        max_attempts: int = 3,
+        retry_classifier: Callable[[str | None], bool] | None = None,
     ) -> None:
         self.job_service = job_service
         self.message_service = message_service
@@ -53,8 +58,34 @@ class MessageJobProcessor:
         self.worker_repository = worker_repository
         self.work_item_repository = work_item_repository
         self.template_service = template_service
+        self.rate_limiter = rate_limiter
+        self.max_attempts = max_attempts
+        self.retry_classifier = retry_classifier or self._is_retryable_error
+        self._execution_locks: dict[tuple[UUID, UUID], asyncio.Lock] = {}
 
     async def process(
+        self,
+        *,
+        job_id: UUID,
+        organization_id: UUID,
+        provider: OutboundMessageProvider,
+    ) -> MessageJobResult:
+        """Process a job once, rejecting concurrent duplicate deliveries."""
+        key = (organization_id, job_id)
+        lock = self._execution_locks.setdefault(key, asyncio.Lock())
+        if lock.locked():
+            return MessageJobResult(
+                job_status=CommunicationJobStatus.PROCESSING,
+                reason_code="DUPLICATE_IN_FLIGHT",
+            )
+        async with lock:
+            return await self._process_once(
+                job_id=job_id,
+                organization_id=organization_id,
+                provider=provider,
+            )
+
+    async def _process_once(
         self,
         *,
         job_id: UUID,
@@ -70,6 +101,11 @@ class MessageJobProcessor:
             CommunicationJobStatus.PROCESSING,
         }:
             return MessageJobResult(job_status=job.status)
+        if job.attempt_count >= self.max_attempts:
+            return MessageJobResult(
+                job_status=CommunicationJobStatus.FAILED,
+                reason_code="MAX_ATTEMPTS_EXCEEDED",
+            )
 
         schedule = await self._get_or_suppress(
             self.schedule_repository,
@@ -195,20 +231,15 @@ class MessageJobProcessor:
                 new_status=CommunicationJobStatus.COMPLETED,
             )
             return MessageJobResult(CommunicationJobStatus.COMPLETED, message.id)
-        if message.delivery_status != DeliveryStatus.QUEUED:
-            await self.job_service.transition_job(
-                job_id=job.id,
-                organization_id=organization_id,
-                new_status=CommunicationJobStatus.FAILED,
-                reason_code=message.error_code or "MESSAGE_NOT_DISPATCHABLE",
-                reason=message.error_message or "The existing message cannot be dispatched again.",
-            )
-            return MessageJobResult(
-                CommunicationJobStatus.FAILED,
-                message.id,
-                message.error_code or "MESSAGE_NOT_DISPATCHABLE",
-            )
+        if message.delivery_status == DeliveryStatus.FAILED and not self.retry_classifier(
+            message.error_code
+        ):
+            return await self._fail_existing_message(job, message)
+        if message.delivery_status not in {DeliveryStatus.QUEUED, DeliveryStatus.FAILED}:
+            return await self._fail_existing_message(job, message)
 
+        if self.rate_limiter is not None:
+            await self.rate_limiter.acquire(channel=job.channel)
         await self.job_service.transition_job(
             job_id=job.id,
             organization_id=organization_id,
@@ -240,6 +271,17 @@ class MessageJobProcessor:
             dispatched.error_code or "MESSAGE_DISPATCH_FAILED",
         )
 
+    async def _fail_existing_message(self, job: Any, message: Any) -> MessageJobResult:
+        reason_code = message.error_code or "MESSAGE_NOT_DISPATCHABLE"
+        await self.job_service.transition_job(
+            job_id=job.id,
+            organization_id=job.organization_id,
+            new_status=CommunicationJobStatus.FAILED,
+            reason_code=reason_code,
+            reason=message.error_message or "The existing message cannot be dispatched again.",
+        )
+        return MessageJobResult(CommunicationJobStatus.FAILED, message.id, reason_code)
+
     async def _get_or_suppress(
         self,
         repository: Any,
@@ -262,6 +304,17 @@ class MessageJobProcessor:
     @staticmethod
     def _due_date(work_item: Any) -> date | None:
         return work_item.due_at.date() if work_item and work_item.due_at else None
+
+    @staticmethod
+    def _is_retryable_error(error_code: str | None) -> bool:
+        """Classify common transient provider failures without naming a vendor."""
+        if not error_code:
+            return False
+        normalized = error_code.upper()
+        return any(
+            marker in normalized
+            for marker in ("NETWORK", "TIMEOUT", "429", "HTTP_5", "RATE_LIMIT", "TRANSIENT")
+        )
 
 
 __all__ = ["MessageJobProcessor", "MessageJobResult"]

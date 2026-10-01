@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
@@ -36,6 +37,8 @@ class FakeJobService:
     async def transition_job(self, **transition):
         self.transitions.append(transition)
         self.job.status = transition["new_status"]
+        if transition["new_status"] == CommunicationJobStatus.PROCESSING:
+            self.job.attempt_count += 1
         return self.job
 
 
@@ -68,7 +71,35 @@ class FakeTemplateService:
         return f"Hello {context.primary_contact_name}"
 
 
-def build_processor(*, worker_status=WorkerStatus.ACTIVE, consent=ConsentStatus.OPTED_IN):
+class FakeRateLimiter:
+    def __init__(self):
+        self.channels = []
+
+    async def acquire(self, *, channel):
+        self.channels.append(channel)
+
+
+class BlockingMessageService(FakeMessageService):
+    def __init__(self, message):
+        super().__init__(message)
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def dispatch_message(self, **data):
+        self.started.set()
+        await self.release.wait()
+        return await super().dispatch_message(**data)
+
+
+def build_processor(
+    *,
+    worker_status=WorkerStatus.ACTIVE,
+    consent=ConsentStatus.OPTED_IN,
+    message_status=DeliveryStatus.QUEUED,
+    message_error_code=None,
+    rate_limiter=None,
+    max_attempts=3,
+):
     organization_id = uuid4()
     schedule_id = uuid4()
     project_id = uuid4()
@@ -87,6 +118,7 @@ def build_processor(*, worker_status=WorkerStatus.ACTIVE, consent=ConsentStatus.
         channel="whatsapp",
         execution_at=datetime(2026, 10, 1, 12, 30, tzinfo=UTC),
         status=CommunicationJobStatus.PENDING,
+        attempt_count=0,
     )
     schedule = SimpleNamespace(
         id=schedule_id,
@@ -117,7 +149,12 @@ def build_processor(*, worker_status=WorkerStatus.ACTIVE, consent=ConsentStatus.
         due_at=None,
     )
     template = SimpleNamespace(id=template_id, channel="whatsapp", status=EntityStatus.ACTIVE)
-    message = SimpleNamespace(id=uuid4(), delivery_status=DeliveryStatus.QUEUED)
+    message = SimpleNamespace(
+        id=uuid4(),
+        delivery_status=message_status,
+        error_code=message_error_code,
+        error_message="provider failure" if message_error_code else None,
+    )
     job_service = FakeJobService(job)
     message_service = FakeMessageService(message)
     template_service = FakeTemplateService(template)
@@ -130,6 +167,8 @@ def build_processor(*, worker_status=WorkerStatus.ACTIVE, consent=ConsentStatus.
         worker_repository=FakeRepository({worker_id: worker}),
         work_item_repository=FakeRepository({work_item_id: work_item}),
         template_service=template_service,
+        rate_limiter=rate_limiter,
+        max_attempts=max_attempts,
     )
     return processor, job, job_service, message_service, template_service
 
@@ -185,3 +224,73 @@ async def test_processor_does_not_send_an_already_sent_message_again():
 
     assert result.job_status == CommunicationJobStatus.COMPLETED
     assert message_service.dispatch_count == 0
+
+
+@pytest.mark.asyncio
+async def test_processor_retries_transient_message_failure_and_uses_rate_limiter():
+    limiter = FakeRateLimiter()
+    processor, job, _job_service, message_service, _template_service = build_processor(
+        message_status=DeliveryStatus.FAILED,
+        message_error_code="WHATSAPP_HTTP_500",
+        rate_limiter=limiter,
+    )
+
+    result = await processor.process(
+        job_id=job.id,
+        organization_id=job.organization_id,
+        provider=object(),
+    )
+
+    assert result.job_status == CommunicationJobStatus.COMPLETED
+    assert message_service.dispatch_count == 1
+    assert limiter.channels == ["whatsapp"]
+
+
+@pytest.mark.asyncio
+async def test_processor_does_not_retry_permanent_failure_or_exceed_attempt_limit():
+    processor, job, _job_service, message_service, _template_service = build_processor(
+        message_status=DeliveryStatus.FAILED,
+        message_error_code="WHATSAPP_HTTP_400",
+    )
+
+    permanent_result = await processor.process(
+        job_id=job.id,
+        organization_id=job.organization_id,
+        provider=object(),
+    )
+    assert permanent_result.job_status == CommunicationJobStatus.FAILED
+    assert message_service.dispatch_count == 0
+
+    processor, job, _job_service, message_service, _template_service = build_processor(
+        max_attempts=1,
+    )
+    job.attempt_count = 1
+    max_attempts_result = await processor.process(
+        job_id=job.id,
+        organization_id=job.organization_id,
+        provider=object(),
+    )
+    assert max_attempts_result.reason_code == "MAX_ATTEMPTS_EXCEEDED"
+    assert message_service.dispatch_count == 0
+
+
+@pytest.mark.asyncio
+async def test_processor_rejects_concurrent_duplicate_delivery():
+    processor, job, _job_service, message_service, _template_service = build_processor()
+    blocking_service = BlockingMessageService(message_service.message)
+    processor.message_service = blocking_service
+
+    first = asyncio.create_task(
+        processor.process(job_id=job.id, organization_id=job.organization_id, provider=object())
+    )
+    await blocking_service.started.wait()
+    duplicate = await processor.process(
+        job_id=job.id,
+        organization_id=job.organization_id,
+        provider=object(),
+    )
+    blocking_service.release.set()
+    first_result = await first
+
+    assert duplicate.reason_code == "DUPLICATE_IN_FLIGHT"
+    assert first_result.job_status == CommunicationJobStatus.COMPLETED

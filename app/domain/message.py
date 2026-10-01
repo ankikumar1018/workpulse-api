@@ -47,7 +47,7 @@ class Message:
         },
         DeliveryStatus.SENT: {DeliveryStatus.DELIVERED, DeliveryStatus.FAILED},
         DeliveryStatus.DELIVERED: set(),
-        DeliveryStatus.FAILED: set(),
+        DeliveryStatus.FAILED: {DeliveryStatus.PROCESSING},
         DeliveryStatus.CANCELLED: set(),
     }
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.rate_limit import InMemoryChannelRateLimiter
 from app.repositories.audit import AuditRepository
 from app.repositories.auth import AuthRepository
 from app.repositories.communication_job import (
@@ -34,6 +35,11 @@ from app.services.schedule import ScheduleService
 from app.services.template import TemplateService
 from app.services.work_item import WorkItemService
 from app.services.worker import WorkerService
+from core.config import settings
+
+_outbound_rate_limiter = InMemoryChannelRateLimiter(
+    rate_per_second=settings.OUTBOUND_RATE_LIMIT_PER_SECOND
+)
 
 
 class Factory:
@@ -105,6 +111,8 @@ class Factory:
             worker_repository=WorkerRepository(session),
             work_item_repository=WorkItemRepository(session),
             template_service=TemplateService(template_repository, template_audit_repository),
+            rate_limiter=_outbound_rate_limiter,
+            max_attempts=settings.OUTBOUND_MAX_ATTEMPTS,
         )
 
     @staticmethod

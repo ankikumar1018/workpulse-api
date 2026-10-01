@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Provider-neutral outbound execution controls
+    OUTBOUND_MAX_ATTEMPTS: int = 3
+    OUTBOUND_RATE_LIMIT_PER_SECOND: float = 10.0
+
     # WhatsApp Business Cloud API settings
     WHATSAPP_ACCESS_TOKEN: str | None = None
     WHATSAPP_PHONE_NUMBER_ID: str | None = None

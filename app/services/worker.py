@@ -93,6 +93,8 @@ class WorkerService:
         limit: int,
         offset: int,
         status: str | None = None,
+        consent_status: str | None = None,
+        search: str | None = None,
     ) -> tuple[list[Worker], int]:
         await self._get_department(department_id=department_id, organization_id=organization_id)
         return await self.repository.list_in_department(
@@ -101,6 +103,8 @@ class WorkerService:
             limit=limit,
             offset=offset,
             status=status,
+            consent_status=consent_status,
+            search=search.strip() if search else None,
         )
 
     async def get_worker(self, *, worker_id: UUID, organization_id: UUID) -> Worker:

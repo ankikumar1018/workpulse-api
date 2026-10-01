@@ -68,8 +68,8 @@ class BaseRepository[T]:
         count_result = await self.session.execute(count_query)
         total = count_result.scalars().first() or 0
 
-        # Get paginated results
-        query = query.limit(limit).offset(offset)
+        # Stable ordering prevents records from moving unpredictably between pages.
+        query = query.order_by(model.id).limit(limit).offset(offset)
         result = await self.session.execute(query)
         return list(result.scalars().all()), total
 

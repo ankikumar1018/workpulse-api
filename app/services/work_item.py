@@ -365,6 +365,7 @@ class WorkItemService:
         department_id: UUID | None = None,
         status: str | None = None,
         priority: str | None = None,
+        search: str | None = None,
         overdue: bool | None = None,
     ) -> tuple[list[WorkItemModel], int]:
         """List work items in a project within organization scope."""
@@ -388,6 +389,7 @@ class WorkItemService:
             department_id=department_id,
             status=status,
             priority=priority_value,
+            search=search.strip() if search else None,
             overdue=overdue,
         )
 

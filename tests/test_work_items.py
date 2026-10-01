@@ -5,11 +5,14 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 
+from app.api.dependencies import AuthContext, get_auth_context, get_work_item_service
 from app.api.errors import UnprocessableEntityError
 from app.domain.enums import EntityStatus, WorkerStatus, WorkPriority, WorkStatus
 from app.domain.work_item import InvalidTransitionError, WorkItem, WorkItemStateTransition
 from app.infrastructure.db.models import Department, Project, Worker, WorkItem as WorkItemModel
+from app.main import app
 from app.services.work_item import WorkItemService
 
 
@@ -467,11 +470,47 @@ async def test_work_item_service_list_filters_priority_and_overdue():
         limit=20,
         offset=0,
         priority="high",
+        search="review",
         overdue=True,
     )
 
     assert repo.calls[0]["priority"] == "high"
+    assert repo.calls[0]["search"] == "review"
     assert repo.calls[0]["overdue"] is True
+
+
+def test_work_item_search_query_is_forwarded_with_tenant_scope_and_pagination():
+    organization_id = uuid4()
+    project_id = uuid4()
+    list_calls: list[dict] = []
+
+    class FakeWorkItemService:
+        async def list_work_items(self, **kwargs):
+            list_calls.append(kwargs)
+            return [], 240
+
+    app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        user_id=uuid4(), organization_id=organization_id
+    )
+    app.dependency_overrides[get_work_item_service] = lambda: FakeWorkItemService()
+    client = TestClient(app)
+    try:
+        response = client.get(
+            f"/api/v1/projects/{project_id}/work_items?search=follow-up&limit=50&offset=100"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["pagination"] == {
+        "total": 240,
+        "limit": 50,
+        "offset": 100,
+        "hasMore": True,
+    }
+    assert list_calls[0]["organization_id"] == organization_id
+    assert list_calls[0]["project_id"] == project_id
+    assert list_calls[0]["search"] == "follow-up"
 
 
 @pytest.mark.asyncio

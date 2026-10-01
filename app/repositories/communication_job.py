@@ -6,12 +6,17 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import CommunicationJobStatus
-from app.infrastructure.db.models import CommunicationJob, CommunicationJobStatusHistory
+from app.infrastructure.db.models import (
+    CommunicationJob,
+    CommunicationJobStatusHistory,
+    Schedule,
+    WorkItem,
+)
 from app.infrastructure.repository import BaseRepository
 
 
@@ -37,12 +42,32 @@ class CommunicationJobRepository(BaseRepository[CommunicationJob]):
         *,
         organization_id: UUID,
         status: CommunicationJobStatus | None,
+        project_id: UUID | None = None,
         limit: int,
         offset: int,
     ) -> tuple[list[CommunicationJob], int]:
         filters = [CommunicationJob.organization_id == organization_id]
         if status is not None:
             filters.append(CommunicationJob.status == status)
+        if project_id is not None:
+            filters.append(
+                or_(
+                    select(Schedule.id)
+                    .where(
+                        Schedule.id == CommunicationJob.schedule_id,
+                        Schedule.organization_id == organization_id,
+                        Schedule.project_id == project_id,
+                    )
+                    .exists(),
+                    select(WorkItem.id)
+                    .where(
+                        WorkItem.id == CommunicationJob.work_item_id,
+                        WorkItem.organization_id == organization_id,
+                        WorkItem.project_id == project_id,
+                    )
+                    .exists(),
+                )
+            )
         count_result = await self.session.execute(
             select(func.count()).select_from(CommunicationJob).where(*filters)
         )

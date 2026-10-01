@@ -47,6 +47,7 @@ async def list_messages(
     limit: int | None = Query(None, ge=1, le=100),
     offset: int | None = Query(None, ge=0),
     delivery_status: Annotated[DeliveryStatus | None, Query(alias="status")] = None,
+    project_id: UUID | None = None,
 ):
     """List outbound messages for the current organization."""
     current_user.assert_admin()
@@ -54,6 +55,7 @@ async def list_messages(
     messages, total = await controller.list_messages(
         organization_id=current_user.organization_id,
         status=delivery_status,
+        project_id=project_id,
         limit=limit,
         offset=offset,
     )

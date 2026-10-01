@@ -66,6 +66,7 @@ async def list_communication_jobs(
     limit: int | None = Query(None, ge=1, le=100),
     offset: int | None = Query(None, ge=0),
     status: Annotated[CommunicationJobStatus | None, Query()] = None,
+    project_id: UUID | None = None,
 ):
     """List logical communication jobs for the current organization."""
     current_user.assert_admin()
@@ -73,6 +74,7 @@ async def list_communication_jobs(
     jobs, total = await controller.list_jobs(
         organization_id=current_user.organization_id,
         status=status,
+        project_id=project_id,
         limit=limit,
         offset=offset,
     )

@@ -75,6 +75,7 @@ async def list_work_items(
     department_id: UUID | None = None,
     status: str | None = None,
     priority: str | None = None,
+    search: str | None = Query(None, min_length=1, max_length=120),
     overdue: bool | None = Query(None),
 ):
     """List work items in a project."""
@@ -88,6 +89,7 @@ async def list_work_items(
         department_id=department_id,
         status=status,
         priority=priority,
+        search=search,
         overdue=overdue,
     )
     return make_list_response(

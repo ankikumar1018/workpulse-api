@@ -43,12 +43,14 @@ class CommunicationJobService:
         *,
         organization_id: UUID,
         status: CommunicationJobStatus | None,
+        project_id: UUID | None = None,
         limit: int,
         offset: int,
     ) -> tuple[list[CommunicationJob], int]:
         return await self.repository.list_in_organization(
             organization_id=organization_id,
             status=status,
+            project_id=project_id,
             limit=limit,
             offset=offset,
         )

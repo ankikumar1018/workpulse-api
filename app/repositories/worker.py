@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.db.models import Worker
@@ -50,15 +50,34 @@ class WorkerRepository(BaseRepository[Worker]):
         limit: int,
         offset: int,
         status: str | None = None,
+        consent_status: str | None = None,
+        search: str | None = None,
     ) -> tuple[list[Worker], int]:
         """List workers in an organization-scoped department."""
-        filters: dict[str, object] = {
-            "department_id": department_id,
-            "organization_id": organization_id,
-        }
+        query = select(Worker).where(
+            Worker.department_id == department_id,
+            Worker.organization_id == organization_id,
+        )
+        count_query = select(func.count(Worker.id)).where(
+            Worker.department_id == department_id,
+            Worker.organization_id == organization_id,
+        )
         if status:
-            filters["status"] = status
-        return await self.find_all(limit=limit, offset=offset, **filters)
+            query = query.where(Worker.status == status)
+            count_query = count_query.where(Worker.status == status)
+        if consent_status:
+            query = query.where(Worker.consent_status == consent_status)
+            count_query = count_query.where(Worker.consent_status == consent_status)
+        if search:
+            pattern = f"%{search}%"
+            search_filter = or_(Worker.full_name.ilike(pattern), Worker.phone_number.ilike(pattern))
+            query = query.where(search_filter)
+            count_query = count_query.where(search_filter)
+
+        query = query.order_by(Worker.full_name, Worker.id)
+        total = await self.session.scalar(count_query) or 0
+        result = await self.session.execute(query.limit(limit).offset(offset))
+        return list(result.scalars().all()), total
 
 
 __all__ = ["WorkerRepository"]

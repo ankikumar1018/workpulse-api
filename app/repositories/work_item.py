@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.db.models import WorkItem
+from app.infrastructure.db.models import Worker, WorkItem
 from app.infrastructure.repository import BaseRepository
 
 
@@ -76,6 +76,7 @@ class WorkItemRepository(BaseRepository[WorkItem]):
         department_id: UUID | None = None,
         status: str | None = None,
         priority: str | None = None,
+        search: str | None = None,
         overdue: bool | None = None,
     ) -> tuple[list[WorkItem], int]:
         """List work items in an organization-scoped project."""
@@ -97,6 +98,20 @@ class WorkItemRepository(BaseRepository[WorkItem]):
         if priority:
             query = query.where(WorkItem.priority == priority)
             count_query = count_query.where(WorkItem.priority == priority)
+        if search:
+            pattern = f"%{search}%"
+            worker_match = select(Worker.id).where(
+                Worker.id == WorkItem.worker_id,
+                Worker.organization_id == organization_id,
+                Worker.full_name.ilike(pattern),
+            )
+            search_filter = or_(
+                WorkItem.title.ilike(pattern),
+                WorkItem.description.ilike(pattern),
+                WorkItem.worker_id.in_(worker_match),
+            )
+            query = query.where(search_filter)
+            count_query = count_query.where(search_filter)
         if overdue is not None:
             if overdue:
                 query = query.where(WorkItem.due_at.is_not(None), WorkItem.due_at < func.now())
@@ -111,7 +126,11 @@ class WorkItemRepository(BaseRepository[WorkItem]):
 
         total_result = await self.session.execute(count_query)
         total = total_result.scalar_one() or 0
-        result = await self.session.execute(query.limit(limit).offset(offset))
+        result = await self.session.execute(
+            query.order_by(WorkItem.created_at.desc(), WorkItem.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
         return list(result.scalars().all()), total
 
     async def list_in_department(

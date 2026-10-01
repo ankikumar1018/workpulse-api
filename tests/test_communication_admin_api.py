@@ -22,6 +22,7 @@ ORGANIZATION_ID = UUID("00000000-0000-0000-0000-000000000001")
 OTHER_ORGANIZATION_ID = UUID("00000000-0000-0000-0000-000000000002")
 MESSAGE_ID = UUID("10000000-0000-0000-0000-000000000001")
 JOB_ID = UUID("20000000-0000-0000-0000-000000000001")
+PROJECT_ID = UUID("70000000-0000-0000-0000-000000000001")
 TIMESTAMP = datetime(2026, 1, 1, 12, tzinfo=UTC)
 
 
@@ -197,7 +198,7 @@ def project_client():
 def test_message_list_forwards_tenant_filter_and_pagination(admin_client):
     client, message_service, _ = admin_client
 
-    response = client.get("/api/v1/messages?status=sent&limit=1&offset=2")
+    response = client.get(f"/api/v1/messages?status=sent&project_id={PROJECT_ID}&limit=1&offset=2")
 
     assert response.status_code == 200
     body = response.json()
@@ -208,6 +209,7 @@ def test_message_list_forwards_tenant_filter_and_pagination(admin_client):
         {
             "organization_id": ORGANIZATION_ID,
             "status": DeliveryStatus.SENT,
+            "project_id": PROJECT_ID,
             "limit": 1,
             "offset": 2,
         }
@@ -230,6 +232,7 @@ def test_job_list_uses_default_pagination_and_tenant(admin_client):
         {
             "organization_id": ORGANIZATION_ID,
             "status": CommunicationJobStatus.COMPLETED,
+            "project_id": None,
             "limit": 20,
             "offset": 0,
         }

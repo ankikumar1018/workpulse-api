@@ -69,6 +69,8 @@ async def list_workers(
     limit: int | None = Query(None, ge=1, le=100),
     offset: int | None = Query(None, ge=0),
     worker_status: str | None = Query(None, alias="status"),
+    consent_status: str | None = Query(None),
+    search: str | None = Query(None, min_length=1, max_length=120),
 ):
     """List workers in the current user's department."""
     current_user.assert_admin()
@@ -79,6 +81,8 @@ async def list_workers(
         limit=limit,
         offset=offset,
         status=worker_status,
+        consent_status=consent_status,
+        search=search,
     )
     return make_list_response(
         [to_worker_response(worker) for worker in workers], total, limit, offset

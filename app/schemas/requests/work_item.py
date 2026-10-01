@@ -44,6 +44,7 @@ class WorkItemUpdateRequest(BaseModel):
     priority: WorkPriority | None = None
     status: WorkStatus | None = None
     worker_id: UUID | None = None
+    due_at: datetime | None = None
 
 
 __all__ = [

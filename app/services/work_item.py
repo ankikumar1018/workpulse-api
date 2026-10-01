@@ -298,6 +298,37 @@ class WorkItemService:
 
         return work_item
 
+    async def update_work_item(
+        self,
+        *,
+        work_item_id: UUID,
+        organization_id: UUID,
+        actor_user_id: UUID,
+        update_data: dict[str, Any],
+    ) -> WorkItemModel:
+        """Update editable work-item fields without bypassing tenant checks."""
+        work_item = await self.get_work_item(
+            work_item_id=work_item_id,
+            organization_id=organization_id,
+        )
+        if "worker_id" in update_data and update_data["worker_id"] is not None:
+            worker = await self.repository.session.get(Worker, update_data["worker_id"])
+            if worker is None or worker.organization_id != organization_id:
+                raise UnprocessableEntityError("Assigned worker is not in this organization")
+        for field in ("title", "description", "priority", "worker_id", "due_at"):
+            if field in update_data:
+                setattr(work_item, field, update_data[field])
+        await self.repository.session.commit()
+        await self.repository.session.refresh(work_item)
+        await self._audit(
+            organization_id=organization_id,
+            actor_user_id=actor_user_id,
+            action=AuditAction.UPDATE,
+            resource_id=work_item.id,
+            metadata={"fields": sorted(update_data)},
+        )
+        return work_item
+
     async def get_work_item(
         self,
         *,

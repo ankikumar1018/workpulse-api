@@ -10,7 +10,11 @@ from app.api.dependencies import CurrentUser, WorkItemSvc
 from app.api.utils import make_list_response, make_success_response, parse_pagination_params
 from app.infrastructure.db.models import WorkItem
 from app.schemas import ListEnvelope, SuccessEnvelope
-from app.schemas.requests.work_item import WorkItemCreateRequest, WorkItemUpdateStatusRequest
+from app.schemas.requests.work_item import (
+    WorkItemCreateRequest,
+    WorkItemUpdateRequest,
+    WorkItemUpdateStatusRequest,
+)
 from app.schemas.responses.work_item import WorkItemResponse, WorkItemTransitionResponse
 
 router = APIRouter(tags=["Work Items"])
@@ -104,6 +108,60 @@ async def get_work_item(
         organization_id=current_user.organization_id,
     )
     return make_success_response(to_work_item_response(work_item))
+
+
+@router.patch("/work_items/{work_item_id}", response_model=SuccessEnvelope)
+async def update_work_item(
+    work_item_id: UUID,
+    request: WorkItemUpdateRequest,
+    controller: WorkItemSvc,
+    current_user: CurrentUser,
+):
+    """Update editable work-item fields."""
+    current_user.assert_admin()
+    work_item = await controller.update_work_item(
+        work_item_id=work_item_id,
+        organization_id=current_user.organization_id,
+        actor_user_id=current_user.user_id,
+        update_data=request.model_dump(exclude_unset=True),
+    )
+    return make_success_response(to_work_item_response(work_item))
+
+
+@router.get("/work_items/{work_item_id}/history", response_model=ListEnvelope)
+async def list_work_item_history(
+    work_item_id: UUID,
+    controller: WorkItemSvc,
+    current_user: CurrentUser,
+):
+    """List tenant-scoped status history for a work item."""
+    current_user.assert_admin()
+    await controller.get_work_item(
+        work_item_id=work_item_id,
+        organization_id=current_user.organization_id,
+    )
+    history_repository = controller.status_history_repository
+    if history_repository is None:
+        return make_list_response([], 0, 100, 0)
+    rows, total = await history_repository.list_for_work_item(
+        work_item_id=work_item_id,
+        organization_id=current_user.organization_id,
+    )
+    return make_list_response(
+        [
+            {
+                "id": row.id,
+                "previous_status": row.previous_status.value,
+                "new_status": row.new_status.value,
+                "reason": row.reason,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ],
+        total,
+        100,
+        0,
+    )
 
 
 @router.patch(

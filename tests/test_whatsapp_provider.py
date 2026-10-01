@@ -1,6 +1,7 @@
 """Unit tests for the WhatsApp Business Cloud API adapter."""
 
 import json
+from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
@@ -33,9 +34,7 @@ async def test_whatsapp_provider_submits_text_and_returns_provider_identity() ->
         requests.append(request)
         return httpx.Response(200, json={"messages": [{"id": "wamid.123"}]})
 
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(respond)
-    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
     provider = WhatsAppCloudProvider(
         access_token="test-token",
         phone_number_id="phone-123",
@@ -85,3 +84,58 @@ async def test_whatsapp_provider_normalizes_provider_errors() -> None:
     with pytest.raises(MessageProviderError, match="status 401"):
         await provider.send(make_message())
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_provider_classifies_transient_http_failures() -> None:
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(429, json={"error": {}}))
+    )
+    provider = WhatsAppCloudProvider(
+        access_token="test-token",
+        phone_number_id="phone-123",
+        api_version="v24.0",
+        client=client,
+    )
+
+    with pytest.raises(MessageProviderError) as exception_info:
+        await provider.send(make_message())
+
+    assert exception_info.value.error_code == "WHATSAPP_HTTP_429"
+    assert exception_info.value.retryable is True
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_provider_rejects_malformed_success_payload() -> None:
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"messages": []}))
+    )
+    provider = WhatsAppCloudProvider(
+        access_token="test-token",
+        phone_number_id="phone-123",
+        api_version="v24.0",
+        client=client,
+    )
+
+    with pytest.raises(MessageProviderError, match="did not include a message identifier"):
+        await provider.send(make_message())
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_provider_rejects_wrong_channel() -> None:
+    provider = WhatsAppCloudProvider(
+        access_token="test-token",
+        phone_number_id="phone-123",
+        api_version="v24.0",
+    )
+
+    wrong_channel_message = SimpleNamespace(
+        channel="sms",
+        recipient_phone_number="+15551234567",
+        rendered_body="Work update",
+    )
+
+    with pytest.raises(MessageProviderError, match="only send WhatsApp messages"):
+        await provider.send(wrong_channel_message)

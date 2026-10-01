@@ -20,6 +20,9 @@ def test_health_check(client):
     assert body["status"] == "success"
     assert body["data"] == {"status": "healthy", "version": "0.1.0"}
     assert "timestamp" in body
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
 
 
 def test_openapi_docs(client):

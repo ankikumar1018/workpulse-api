@@ -69,6 +69,15 @@ class Settings(BaseSettings):
             self.CORS_ALLOW_CREDENTIALS = False
         return self
 
+    def validate_security_settings(self) -> None:
+        """Reject development-only security settings before a non-debug app starts."""
+        if self.DEBUG:
+            return
+        if self.SECRET_KEY == "dev-secret-key-change-in-production":
+            raise ValueError("SECRET_KEY must be changed when DEBUG is disabled")
+        if "*" in self.CORS_ORIGINS:
+            raise ValueError("CORS_ORIGINS must list trusted origins when DEBUG is disabled")
+
     @cached_property
     def DATABASE_URL(self) -> str:
         """Build database connection URL."""

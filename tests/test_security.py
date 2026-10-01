@@ -7,6 +7,7 @@ from app.api.dependencies import AuthContext, get_auth_context
 from app.api.errors import ForbiddenError, UnauthorizedError
 from app.api.security import create_access_token, decode_access_token
 from app.infrastructure.db.models import User
+from core.config import Settings
 
 
 class FakeSession:
@@ -147,3 +148,21 @@ def test_non_admin_auth_context_is_forbidden_from_admin_operations():
         context.assert_admin()
 
     assert exception_info.value.message == "Admin role required"
+
+
+def test_non_debug_settings_reject_the_development_secret():
+    settings = Settings(DEBUG=False)
+
+    with pytest.raises(ValueError, match="SECRET_KEY must be changed"):
+        settings.validate_security_settings()
+
+
+def test_non_debug_settings_reject_wildcard_cors():
+    settings = Settings(
+        DEBUG=False,
+        SECRET_KEY="test-secret",
+        CORS_ORIGINS=["*"],
+    )
+
+    with pytest.raises(ValueError, match="CORS_ORIGINS"):
+        settings.validate_security_settings()

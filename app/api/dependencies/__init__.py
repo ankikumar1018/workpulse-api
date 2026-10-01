@@ -3,6 +3,7 @@
 from app.api.dependencies.auth import AuthContext, CurrentUser, get_auth_context, oauth2_scheme
 from app.api.dependencies.services import (
     AuthSvc,
+    CommunicationJobSvc,
     DepartmentSvc,
     MessageSvc,
     OrganizationSvc,
@@ -12,6 +13,7 @@ from app.api.dependencies.services import (
     WorkerSvc,
     WorkItemSvc,
     get_auth_service,
+    get_communication_job_service,
     get_department_service,
     get_message_service,
     get_organization_service,
@@ -25,6 +27,7 @@ from app.api.dependencies.services import (
 __all__ = [
     "AuthContext",
     "AuthSvc",
+    "CommunicationJobSvc",
     "CurrentUser",
     "DepartmentSvc",
     "MessageSvc",
@@ -36,6 +39,7 @@ __all__ = [
     "WorkerSvc",
     "get_auth_context",
     "get_auth_service",
+    "get_communication_job_service",
     "get_department_service",
     "get_message_service",
     "get_organization_service",

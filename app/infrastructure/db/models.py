@@ -29,6 +29,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.domain.enums import (
     AuditAction,
     Channel,
+    CommunicationJobStatus,
     ConsentStatus,
     DeliveryStatus,
     EntityStatus,
@@ -486,6 +487,116 @@ class Message(TimestampMixin, Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CommunicationJob(TimestampMixin, Base):
+    """Logical scheduled communication independent from queue delivery."""
+
+    __tablename__ = "communication_jobs"
+    __table_args__ = (
+        CheckConstraint("attempt_count >= 0", name="ck_communication_jobs_attempt_count_gte_zero"),
+        UniqueConstraint("organization_id", "job_key", name="uq_communication_jobs_org_job_key"),
+        ForeignKeyConstraint(
+            ["organization_id", "schedule_id"],
+            ["schedules.organization_id", "schedules.id"],
+            ondelete="SET NULL (schedule_id)",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "template_id"],
+            ["templates.organization_id", "templates.id"],
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "work_item_id"],
+            ["work_items.organization_id", "work_items.id"],
+            ondelete="SET NULL (work_item_id)",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "worker_id"],
+            ["workers.organization_id", "workers.id"],
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("organization_id", "id", name="uq_communication_jobs_org_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    schedule_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    template_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    work_item_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    worker_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    channel: Mapped[Channel] = mapped_column(
+        Enum(Channel, name="channel_type", values_callable=enum_values),
+        nullable=False,
+        default=Channel.WHATSAPP,
+        server_default=Channel.WHATSAPP.value,
+    )
+    execution_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    job_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[CommunicationJobStatus] = mapped_column(
+        Enum(
+            CommunicationJobStatus,
+            name="communication_job_status",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        default=CommunicationJobStatus.PENDING,
+        server_default=CommunicationJobStatus.PENDING.value,
+    )
+    attempt_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    last_error_code: Mapped[str | None] = mapped_column(String(100))
+    last_error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CommunicationJobStatusHistory(Base):
+    """Append-only logical job history, independent from queue implementation."""
+
+    __tablename__ = "communication_job_status_history"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "job_id"],
+            ["communication_jobs.organization_id", "communication_jobs.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id"],
+            ["organizations.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    job_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    previous_status: Mapped[CommunicationJobStatus | None] = mapped_column(
+        Enum(
+            CommunicationJobStatus,
+            name="communication_job_status",
+            values_callable=enum_values,
+        )
+    )
+    new_status: Mapped[CommunicationJobStatus] = mapped_column(
+        Enum(
+            CommunicationJobStatus,
+            name="communication_job_status",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+    )
+    reason_code: Mapped[str | None] = mapped_column(String(100))
+    reason: Mapped[str | None] = mapped_column(Text)
+    queue_reference: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class MessageStatusHistory(Base):

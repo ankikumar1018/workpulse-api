@@ -90,6 +90,17 @@ class DeliveryStatus(enum.StrEnum):
     CANCELLED = "cancelled"
 
 
+class CommunicationJobStatus(enum.StrEnum):
+    """Queue-independent lifecycle for a scheduled communication job."""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    SUPPRESSED = "suppressed"
+
+
 class AuditAction(enum.StrEnum):
     """Minimal audit action set for phase 1."""
 
@@ -102,6 +113,7 @@ class AuditAction(enum.StrEnum):
 __all__ = [
     "AuditAction",
     "Channel",
+    "CommunicationJobStatus",
     "ConsentStatus",
     "DeliveryStatus",
     "EntityStatus",

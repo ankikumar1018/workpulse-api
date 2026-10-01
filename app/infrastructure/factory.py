@@ -10,6 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.audit import AuditRepository
 from app.repositories.auth import AuthRepository
+from app.repositories.communication_job import (
+    CommunicationJobHistoryRepository,
+    CommunicationJobRepository,
+)
 from app.repositories.department import DepartmentRepository
 from app.repositories.message import MessageHistoryRepository, MessageRepository
 from app.repositories.organization import OrganizationRepository
@@ -20,6 +24,7 @@ from app.repositories.work_item import WorkItemRepository
 from app.repositories.work_item_status_history import WorkItemStatusHistoryRepository
 from app.repositories.worker import WorkerRepository
 from app.services.auth import AuthService
+from app.services.communication_job import CommunicationJobService
 from app.services.department import DepartmentService
 from app.services.message import MessageService
 from app.services.organization import OrganizationService
@@ -73,6 +78,13 @@ class Factory:
         repository = MessageRepository(session)
         history_repository = MessageHistoryRepository(session)
         return MessageService(repository, history_repository)
+
+    @staticmethod
+    def get_communication_job_service(session: AsyncSession) -> CommunicationJobService:
+        """Get logical communication job service with injected repositories."""
+        repository = CommunicationJobRepository(session)
+        history_repository = CommunicationJobHistoryRepository(session)
+        return CommunicationJobService(repository, history_repository)
 
     @staticmethod
     def get_schedule_service(session: AsyncSession) -> ScheduleService:

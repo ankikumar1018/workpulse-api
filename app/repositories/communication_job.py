@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +31,29 @@ class CommunicationJobRepository(BaseRepository[CommunicationJob]):
             )
         )
         return result.scalar_one_or_none()
+
+    async def list_in_organization(
+        self,
+        *,
+        organization_id: UUID,
+        status: CommunicationJobStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[CommunicationJob], int]:
+        filters = [CommunicationJob.organization_id == organization_id]
+        if status is not None:
+            filters.append(CommunicationJob.status == status)
+        count_result = await self.session.execute(
+            select(func.count()).select_from(CommunicationJob).where(*filters)
+        )
+        result = await self.session.execute(
+            select(CommunicationJob)
+            .where(*filters)
+            .order_by(CommunicationJob.execution_at.desc(), CommunicationJob.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all()), count_result.scalar_one()
 
     async def find_by_job_key(
         self, *, organization_id: UUID, job_key: str

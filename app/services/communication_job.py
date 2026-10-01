@@ -38,6 +38,21 @@ class CommunicationJobService:
             raise NotFoundError(f"Communication job '{job_id}' not found")
         return job
 
+    async def list_jobs(
+        self,
+        *,
+        organization_id: UUID,
+        status: CommunicationJobStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[CommunicationJob], int]:
+        return await self.repository.list_in_organization(
+            organization_id=organization_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+
     async def create_job(
         self,
         *,

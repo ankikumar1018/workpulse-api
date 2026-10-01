@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +34,29 @@ class MessageRepository(BaseRepository[Message]):
             )
         )
         return result.scalar_one_or_none()
+
+    async def list_in_organization(
+        self,
+        *,
+        organization_id: UUID,
+        status: DeliveryStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Message], int]:
+        filters = [Message.organization_id == organization_id]
+        if status is not None:
+            filters.append(Message.delivery_status == status)
+        count_result = await self.session.execute(
+            select(func.count()).select_from(Message).where(*filters)
+        )
+        result = await self.session.execute(
+            select(Message)
+            .where(*filters)
+            .order_by(Message.created_at.desc(), Message.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all()), count_result.scalar_one()
 
     async def find_by_dispatch_key(
         self,

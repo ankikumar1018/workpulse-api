@@ -12,6 +12,7 @@ from app.services.auth import AuthService
 from app.services.communication_job import CommunicationJobService
 from app.services.department import DepartmentService
 from app.services.message import MessageService
+from app.services.message_job_processor import MessageJobProcessor
 from app.services.organization import OrganizationService
 from app.services.project import ProjectService
 from app.services.schedule import ScheduleService
@@ -70,6 +71,13 @@ async def get_communication_job_service(
     return Factory.get_communication_job_service(session)
 
 
+async def get_message_job_processor(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MessageJobProcessor:
+    """Dependency to get the message job processor with injected services."""
+    return Factory.get_message_job_processor(session)
+
+
 async def get_schedule_service(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ScheduleService:
@@ -99,6 +107,7 @@ TemplateSvc = Annotated[TemplateService, Depends(get_template_service)]
 DepartmentSvc = Annotated[DepartmentService, Depends(get_department_service)]
 MessageSvc = Annotated[MessageService, Depends(get_message_service)]
 CommunicationJobSvc = Annotated[CommunicationJobService, Depends(get_communication_job_service)]
+MessageJobProcessorSvc = Annotated[MessageJobProcessor, Depends(get_message_job_processor)]
 ScheduleSvc = Annotated[ScheduleService, Depends(get_schedule_service)]
 WorkerSvc = Annotated[WorkerService, Depends(get_worker_service)]
 WorkItemSvc = Annotated[WorkItemService, Depends(get_work_item_service)]
@@ -107,6 +116,7 @@ __all__ = [
     "AuthSvc",
     "CommunicationJobSvc",
     "DepartmentSvc",
+    "MessageJobProcessorSvc",
     "MessageSvc",
     "OrganizationSvc",
     "ProjectSvc",
@@ -117,6 +127,7 @@ __all__ = [
     "get_auth_service",
     "get_communication_job_service",
     "get_department_service",
+    "get_message_job_processor",
     "get_message_service",
     "get_organization_service",
     "get_project_service",

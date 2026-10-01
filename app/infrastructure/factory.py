@@ -27,6 +27,7 @@ from app.services.auth import AuthService
 from app.services.communication_job import CommunicationJobService
 from app.services.department import DepartmentService
 from app.services.message import MessageService
+from app.services.message_job_processor import MessageJobProcessor
 from app.services.organization import OrganizationService
 from app.services.project import ProjectService
 from app.services.schedule import ScheduleService
@@ -85,6 +86,26 @@ class Factory:
         repository = CommunicationJobRepository(session)
         history_repository = CommunicationJobHistoryRepository(session)
         return CommunicationJobService(repository, history_repository)
+
+    @staticmethod
+    def get_message_job_processor(session: AsyncSession) -> MessageJobProcessor:
+        """Get the execution processor with tenant-scoped dependencies."""
+        job_repository = CommunicationJobRepository(session)
+        job_history_repository = CommunicationJobHistoryRepository(session)
+        message_repository = MessageRepository(session)
+        message_history_repository = MessageHistoryRepository(session)
+        template_repository = TemplateRepository(session)
+        template_audit_repository = AuditRepository(session)
+        return MessageJobProcessor(
+            job_service=CommunicationJobService(job_repository, job_history_repository),
+            message_service=MessageService(message_repository, message_history_repository),
+            schedule_repository=ScheduleRepository(session),
+            project_repository=ProjectRepository(session),
+            department_repository=DepartmentRepository(session),
+            worker_repository=WorkerRepository(session),
+            work_item_repository=WorkItemRepository(session),
+            template_service=TemplateService(template_repository, template_audit_repository),
+        )
 
     @staticmethod
     def get_schedule_service(session: AsyncSession) -> ScheduleService:

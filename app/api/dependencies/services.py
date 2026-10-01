@@ -13,6 +13,7 @@ from app.services.department import DepartmentService
 from app.services.message import MessageService
 from app.services.organization import OrganizationService
 from app.services.project import ProjectService
+from app.services.schedule import ScheduleService
 from app.services.template import TemplateService
 from app.services.work_item import WorkItemService
 from app.services.worker import WorkerService
@@ -61,6 +62,13 @@ async def get_message_service(
     return Factory.get_message_service(session)
 
 
+async def get_schedule_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ScheduleService:
+    """Dependency to get schedule service with injected session."""
+    return Factory.get_schedule_service(session)
+
+
 async def get_worker_service(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> WorkerService:
@@ -82,6 +90,7 @@ ProjectSvc = Annotated[ProjectService, Depends(get_project_service)]
 TemplateSvc = Annotated[TemplateService, Depends(get_template_service)]
 DepartmentSvc = Annotated[DepartmentService, Depends(get_department_service)]
 MessageSvc = Annotated[MessageService, Depends(get_message_service)]
+ScheduleSvc = Annotated[ScheduleService, Depends(get_schedule_service)]
 WorkerSvc = Annotated[WorkerService, Depends(get_worker_service)]
 WorkItemSvc = Annotated[WorkItemService, Depends(get_work_item_service)]
 
@@ -91,6 +100,7 @@ __all__ = [
     "MessageSvc",
     "OrganizationSvc",
     "ProjectSvc",
+    "ScheduleSvc",
     "TemplateSvc",
     "WorkItemSvc",
     "WorkerSvc",
@@ -99,6 +109,7 @@ __all__ = [
     "get_message_service",
     "get_organization_service",
     "get_project_service",
+    "get_schedule_service",
     "get_template_service",
     "get_work_item_service",
     "get_worker_service",

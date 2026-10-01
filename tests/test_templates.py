@@ -23,13 +23,14 @@ class FakeSession:
         pass
 
     async def refresh(self, _template):
-        pass
+        return _template
 
 
 class FakeTemplateRepository:
     def __init__(self, templates: list[Template], projects: list[Project]):
         self.templates = templates
         self.session = FakeSession(projects)
+        self.last_filters = {}
 
     async def find_by_name(self, *, project_id, name, channel):
         return next(
@@ -64,8 +65,17 @@ class FakeTemplateRepository:
             setattr(template, key, value)
         return template
 
-    async def list_in_project(self, **_filters):
+    async def list_in_project(self, **filters):
+        self.last_filters = filters
         return self.templates, len(self.templates)
+
+
+class FakeAuditRepository:
+    def __init__(self):
+        self.events: list[dict] = []
+
+    async def record(self, **event):
+        self.events.append(event)
 
 
 def make_project(*, organization_id=None, status=EntityStatus.ACTIVE):
@@ -142,7 +152,9 @@ def test_template_context_missing_optional_state_fails_clearly():
         work_status="open",
     )
 
-    with pytest.raises(InvalidTemplateError, match="Missing template variables: primary_contact_name"):
+    with pytest.raises(
+        InvalidTemplateError, match="Missing template variables: primary_contact_name"
+    ):
         template.render_context(context)
 
 
@@ -213,11 +225,14 @@ async def test_template_service_renders_active_templates_and_rejects_archived_on
         primary_contact_name="Asha",
     )
 
-    assert await service.render_template(
-        template_id=template.id,
-        organization_id=organization_id,
-        context=context,
-    ) == "Hi Asha"
+    assert (
+        await service.render_template(
+            template_id=template.id,
+            organization_id=organization_id,
+            context=context,
+        )
+        == "Hi Asha"
+    )
 
     template.status = EntityStatus.ARCHIVED
     with pytest.raises(UnprocessableEntityError) as exception_info:
@@ -227,3 +242,109 @@ async def test_template_service_renders_active_templates_and_rejects_archived_on
             context=context,
         )
     assert exception_info.value.message == "Archived templates cannot be rendered"
+
+
+@pytest.mark.asyncio
+async def test_template_service_rejects_archived_project_and_invalid_definition():
+    organization_id = uuid4()
+    archived_project = make_project(organization_id=organization_id, status=EntityStatus.ARCHIVED)
+    service = TemplateService(FakeTemplateRepository([], [archived_project]))
+
+    with pytest.raises(UnprocessableEntityError) as exception_info:
+        await service.create_template(
+            organization_id=organization_id,
+            project_id=archived_project.id,
+            actor_user_id=uuid4(),
+            name="Reminder",
+            channel=Channel.WHATSAPP,
+            body="Hi {{worker_name}}",
+            variable_schema={"worker_name": "string"},
+        )
+    assert exception_info.value.message == "Archived projects cannot contain new templates"
+
+    project = make_project(organization_id=organization_id)
+    service = TemplateService(FakeTemplateRepository([], [project]))
+    with pytest.raises(UnprocessableEntityError) as exception_info:
+        await service.create_template(
+            organization_id=organization_id,
+            project_id=project.id,
+            actor_user_id=uuid4(),
+            name="Reminder",
+            channel=Channel.WHATSAPP,
+            body="Hi {{worker_name}}",
+            variable_schema={},
+        )
+    assert "undeclared variables: worker_name" in exception_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_template_service_requires_provider_template_name_and_language_together():
+    organization_id = uuid4()
+    project = make_project(organization_id=organization_id)
+    service = TemplateService(FakeTemplateRepository([], [project]))
+
+    with pytest.raises(UnprocessableEntityError) as exception_info:
+        await service.create_template(
+            organization_id=organization_id,
+            project_id=project.id,
+            actor_user_id=uuid4(),
+            name="Reminder",
+            channel=Channel.WHATSAPP,
+            body="Reminder",
+            variable_schema={},
+            provider_template_name="reminder_v1",
+        )
+    assert "must be configured together" in exception_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_template_service_updates_valid_definition_and_records_audit():
+    organization_id = uuid4()
+    actor_user_id = uuid4()
+    project = make_project(organization_id=organization_id)
+    template = make_template(organization_id=organization_id, project_id=project.id)
+    audit_repository = FakeAuditRepository()
+    service = TemplateService(FakeTemplateRepository([template], [project]), audit_repository)
+
+    updated = await service.update_template(
+        template_id=template.id,
+        organization_id=organization_id,
+        actor_user_id=actor_user_id,
+        update_data={
+            "name": "Project update",
+            "body": "Hi {{worker_name}} for {{project_name}}",
+            "variable_schema_json": {"worker_name": "string", "project_name": "string"},
+        },
+    )
+
+    assert updated.name == "Project update"
+    assert updated.variable_schema_json == {
+        "worker_name": "string",
+        "project_name": "string",
+    }
+    assert audit_repository.events[0]["actor_user_id"] == actor_user_id
+    assert audit_repository.events[0]["metadata"]["name"] == "Project update"
+
+
+@pytest.mark.asyncio
+async def test_template_service_archive_is_idempotent_and_audited_once():
+    organization_id = uuid4()
+    project = make_project(organization_id=organization_id)
+    template = make_template(organization_id=organization_id, project_id=project.id)
+    audit_repository = FakeAuditRepository()
+    service = TemplateService(FakeTemplateRepository([template], [project]), audit_repository)
+
+    await service.archive_template(
+        template_id=template.id,
+        organization_id=organization_id,
+        actor_user_id=uuid4(),
+    )
+    await service.archive_template(
+        template_id=template.id,
+        organization_id=organization_id,
+        actor_user_id=uuid4(),
+    )
+
+    assert template.status == EntityStatus.ARCHIVED
+    assert len(audit_repository.events) == 1
+    assert audit_repository.events[0]["metadata"] == {"status": EntityStatus.ARCHIVED.value}

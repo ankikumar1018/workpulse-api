@@ -1,13 +1,16 @@
 """Comprehensive tests for work item domain model and state transitions."""
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
-from app.domain.enums import WorkStatus
+from app.api.errors import UnprocessableEntityError
+from app.domain.enums import EntityStatus, WorkerStatus, WorkPriority, WorkStatus
 from app.domain.work_item import InvalidTransitionError, WorkItem, WorkItemStateTransition
-from app.infrastructure.db.models import WorkItem as WorkItemModel
+from app.infrastructure.db.models import Department, Project, Worker, WorkItem as WorkItemModel
+from app.services.work_item import WorkItemService
 
 
 class FakeWorkItemStatusHistoryRepository:
@@ -29,6 +32,97 @@ class FakeWorkItemStatusHistoryRepository:
             and record["organization_id"] == organization_id
         ]
         return items[offset : offset + limit], len(items)
+
+
+class FakeWorkItemServiceSession:
+    def __init__(self, objects):
+        self.objects = objects
+        self.flush_count = 0
+        self.commit_count = 0
+
+    async def get(self, model, object_id):
+        return self.objects.get((model, object_id))
+
+    async def flush(self):
+        self.flush_count += 1
+
+    async def commit(self):
+        self.commit_count += 1
+
+    async def refresh(self, item):
+        return item
+
+
+class FakeWorkItemServiceRepository:
+    def __init__(self, objects):
+        self.session = FakeWorkItemServiceSession(objects)
+        self.items = {}
+        self.create_data = None
+        self.list_filters = None
+
+    async def create(self, data):
+        self.create_data = data
+        item = SimpleNamespace(id=uuid4(), **data)
+        self.items[item.id] = item
+        return item
+
+    async def get_in_organization(self, *, work_item_id, organization_id):
+        item = self.items.get(work_item_id)
+        return item if item and item.organization_id == organization_id else None
+
+    async def list_in_project(self, **filters):
+        self.list_filters = filters
+        return [], 0
+
+
+class FakeWorkItemAuditRepository:
+    def __init__(self):
+        self.events = []
+
+    async def record(self, **event):
+        self.events.append(event)
+
+
+def make_work_item_service(
+    *,
+    project_status=EntityStatus.ACTIVE,
+    department_status=EntityStatus.ACTIVE,
+    worker_status=WorkerStatus.ACTIVE,
+    department_project_id=None,
+    worker_department_id=None,
+):
+    organization_id = uuid4()
+    project_id = uuid4()
+    department_id = uuid4()
+    worker_id = uuid4()
+    project = SimpleNamespace(organization_id=organization_id, status=project_status)
+    department = SimpleNamespace(
+        organization_id=organization_id,
+        project_id=department_project_id or project_id,
+        status=department_status,
+    )
+    worker = SimpleNamespace(
+        organization_id=organization_id,
+        department_id=worker_department_id or department_id,
+        status=worker_status,
+    )
+    repository = FakeWorkItemServiceRepository(
+        {
+            (Project, project_id): project,
+            (Department, department_id): department,
+            (Worker, worker_id): worker,
+        }
+    )
+    audit_repository = FakeWorkItemAuditRepository()
+    history_repository = FakeWorkItemStatusHistoryRepository()
+    service = WorkItemService(repository, audit_repository, history_repository)
+    scope = {
+        "organization_id": organization_id,
+        "project_id": project_id,
+        "department_id": department_id,
+        "worker_id": worker_id,
+    }
+    return service, repository, audit_repository, history_repository, scope
 
 
 class TestWorkItemStateTransition:
@@ -378,6 +472,204 @@ async def test_work_item_service_list_filters_priority_and_overdue():
 
     assert repo.calls[0]["priority"] == "high"
     assert repo.calls[0]["overdue"] is True
+
+
+@pytest.mark.asyncio
+async def test_work_item_service_creation_records_scope_and_audit_metadata():
+    service, repository, audit_repository, _, scope = make_work_item_service()
+    actor_user_id = uuid4()
+    due_at = datetime(2026, 10, 15, 9, 0, tzinfo=UTC)
+
+    item = await service.create_work_item(
+        project_id=scope["project_id"],
+        department_id=scope["department_id"],
+        organization_id=scope["organization_id"],
+        actor_user_id=actor_user_id,
+        title="Review onboarding queue",
+        description="Check outstanding tasks",
+        priority="high",
+        worker_id=scope["worker_id"],
+        due_at=due_at,
+    )
+
+    assert item.organization_id == scope["organization_id"]
+    assert item.project_id == scope["project_id"]
+    assert item.department_id == scope["department_id"]
+    assert item.worker_id == scope["worker_id"]
+    assert item.priority == WorkPriority.HIGH
+    assert item.status == WorkStatus.OPEN
+    assert item.due_at == due_at
+    assert repository.create_data["created_by_user_id"] == actor_user_id
+    assert audit_repository.events[0]["action"].value == "create"
+    assert audit_repository.events[0]["metadata"]["project_id"] == str(scope["project_id"])
+
+
+@pytest.mark.parametrize(
+    "project_status, department_status, worker_status, wrong_project, wrong_department, priority, expected_error",
+    [
+        pytest.param(
+            EntityStatus.ARCHIVED,
+            EntityStatus.ACTIVE,
+            WorkerStatus.ACTIVE,
+            False,
+            False,
+            "medium",
+            "archived projects",
+            id="archived-project",
+        ),
+        pytest.param(
+            EntityStatus.ACTIVE,
+            EntityStatus.ARCHIVED,
+            WorkerStatus.ACTIVE,
+            False,
+            False,
+            "medium",
+            "archived departments",
+            id="archived-department",
+        ),
+        pytest.param(
+            EntityStatus.ACTIVE,
+            EntityStatus.ACTIVE,
+            WorkerStatus.ACTIVE,
+            True,
+            False,
+            "medium",
+            "does not belong to project",
+            id="department-project-mismatch",
+        ),
+        pytest.param(
+            EntityStatus.ACTIVE,
+            EntityStatus.ACTIVE,
+            WorkerStatus.INACTIVE,
+            False,
+            False,
+            "medium",
+            "Inactive workers",
+            id="inactive-worker",
+        ),
+        pytest.param(
+            EntityStatus.ACTIVE,
+            EntityStatus.ACTIVE,
+            WorkerStatus.ACTIVE,
+            False,
+            True,
+            "medium",
+            "does not belong to department",
+            id="worker-department-mismatch",
+        ),
+        pytest.param(
+            EntityStatus.ACTIVE,
+            EntityStatus.ACTIVE,
+            WorkerStatus.ACTIVE,
+            False,
+            False,
+            "critical",
+            "Invalid priority",
+            id="unknown-priority",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_work_item_service_rejects_invalid_creation_configuration(
+    project_status,
+    department_status,
+    worker_status,
+    wrong_project,
+    wrong_department,
+    priority,
+    expected_error,
+):
+    service, repository, _, _, scope = make_work_item_service(
+        project_status=project_status,
+        department_status=department_status,
+        worker_status=worker_status,
+        department_project_id=uuid4() if wrong_project else None,
+        worker_department_id=uuid4() if wrong_department else None,
+    )
+
+    with pytest.raises(UnprocessableEntityError) as exception_info:
+        await service.create_work_item(
+            project_id=scope["project_id"],
+            department_id=scope["department_id"],
+            organization_id=scope["organization_id"],
+            actor_user_id=uuid4(),
+            title="Review onboarding queue",
+            priority=priority,
+            worker_id=scope["worker_id"],
+        )
+
+    assert expected_error in exception_info.value.message
+    assert repository.create_data is None
+
+
+@pytest.mark.asyncio
+async def test_work_item_service_status_noop_has_no_history_or_audit():
+    service, _, audit_repository, history_repository, scope = make_work_item_service()
+    item = await service.create_work_item(
+        project_id=scope["project_id"],
+        department_id=scope["department_id"],
+        organization_id=scope["organization_id"],
+        actor_user_id=uuid4(),
+        title="Review onboarding queue",
+    )
+    audit_count = len(audit_repository.events)
+
+    result = await service.update_work_item_status(
+        work_item_id=item.id,
+        new_status="open",
+        organization_id=scope["organization_id"],
+        actor_user_id=uuid4(),
+    )
+
+    assert result.status == WorkStatus.OPEN
+    assert history_repository.records == []
+    assert len(audit_repository.events) == audit_count
+
+
+@pytest.mark.asyncio
+async def test_work_item_service_rejects_unknown_status_and_cross_tenant_worker_update():
+    service, _, _, _, scope = make_work_item_service()
+    item = await service.create_work_item(
+        project_id=scope["project_id"],
+        department_id=scope["department_id"],
+        organization_id=scope["organization_id"],
+        actor_user_id=uuid4(),
+        title="Review onboarding queue",
+    )
+
+    with pytest.raises(UnprocessableEntityError) as status_error:
+        await service.update_work_item_status(
+            work_item_id=item.id,
+            new_status="waiting",
+            organization_id=scope["organization_id"],
+            actor_user_id=uuid4(),
+        )
+    assert "Invalid status" in status_error.value.message
+    with pytest.raises(UnprocessableEntityError) as assignment_error:
+        await service.update_work_item(
+            work_item_id=item.id,
+            organization_id=scope["organization_id"],
+            actor_user_id=uuid4(),
+            update_data={"worker_id": uuid4()},
+        )
+    assert "not in this organization" in assignment_error.value.message
+
+
+@pytest.mark.asyncio
+async def test_work_item_service_validates_priority_before_listing():
+    service, repository, _, _, scope = make_work_item_service()
+
+    with pytest.raises(UnprocessableEntityError) as exception_info:
+        await service.list_work_items(
+            project_id=scope["project_id"],
+            organization_id=scope["organization_id"],
+            limit=20,
+            offset=0,
+            priority="critical",
+        )
+
+    assert "Invalid priority" in exception_info.value.message
+    assert repository.list_filters is None
 
 
 __all__ = ["TestWorkItemEntity", "TestWorkItemStateTransition"]

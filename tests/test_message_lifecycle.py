@@ -5,11 +5,13 @@ import pytest
 
 from app.api.errors import NotFoundError, UnprocessableEntityError
 from app.domain.enums import Channel, DeliveryStatus
-from app.domain.idempotency import (
-    build_communication_job_key,
-    build_message_dispatch_key,
+from app.domain.idempotency import build_communication_job_key, build_message_dispatch_key
+from app.domain.message_provider import (
+    MessageProviderConfigurationError,
+    MessageProviderError,
+    ProviderSendResult,
+    ProviderTemplate,
 )
-from app.domain.message_provider import MessageProviderError, ProviderSendResult
 from app.infrastructure.db.models import Message as MessageModel, MessageStatusHistory
 from app.repositories.message import MessageHistoryRepository
 from app.services.message import MessageService
@@ -120,8 +122,10 @@ class FakeProvider:
 
     def __init__(self, error: MessageProviderError | None = None):
         self.error = error
+        self.messages = []
 
-    async def send(self, _message):
+    async def send(self, message):
+        self.messages.append(message)
         if self.error:
             raise self.error
         return ProviderSendResult("whatsapp_cloud", "wamid.123")
@@ -140,9 +144,12 @@ def test_idempotency_keys_are_stable_and_distinct_by_logical_execution():
     assert message_key == build_message_dispatch_key(**inputs)
     assert message_key.startswith("msg_")
     assert build_communication_job_key(**inputs).startswith("job_")
-    assert build_message_dispatch_key(
-        **{**inputs, "execution_at": datetime(2026, 9, 15, 12, 31, tzinfo=UTC)}
-    ) != message_key
+    assert (
+        build_message_dispatch_key(
+            **{**inputs, "execution_at": datetime(2026, 9, 15, 12, 31, tzinfo=UTC)}
+        )
+        != message_key
+    )
 
     with pytest.raises(ValueError, match="timezone"):
         build_message_dispatch_key(**{**inputs, "execution_at": datetime(2026, 9, 15, 12, 30)})
@@ -171,10 +178,13 @@ async def test_message_service_records_tenant_scoped_transition_history():
     assert repository.history[0].previous_status == DeliveryStatus.QUEUED
     assert repository.history[0].new_status == DeliveryStatus.SENT
     assert repository.history[0].provider_message_id == "provider-1"
-    assert await service.list_history(
-        message_id=message.id,
-        organization_id=organization_id,
-    ) == repository.history
+    assert (
+        await service.list_history(
+            message_id=message.id,
+            organization_id=organization_id,
+        )
+        == repository.history
+    )
 
     with pytest.raises(NotFoundError):
         await service.get_message(message_id=message.id, organization_id=uuid4())
@@ -240,6 +250,43 @@ async def test_dispatch_persists_provider_identity_and_lifecycle_history():
         DeliveryStatus.PROCESSING,
         DeliveryStatus.SENT,
     ]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_forwards_approved_template_and_persists_provider_identity():
+    message = make_message()
+    repository = FakeMessageRepository([message])
+    service = MessageService(repository, FakeHistoryRepository(repository))
+    provider = FakeProvider()
+    template = ProviderTemplate("work_update", "en_US", ("Apollo",))
+
+    dispatched = await service.dispatch_message(
+        message_id=message.id,
+        organization_id=message.organization_id,
+        provider=provider,
+        provider_template=template,
+    )
+
+    assert provider.messages[0].provider_template == template
+    assert provider.messages[0].recipient_phone_number == message.recipient_phone_number
+    assert dispatched.delivery_status == DeliveryStatus.SENT
+    assert dispatched.provider_message_id == "wamid.123"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_records_missing_credentials_as_permanent_failure():
+    message = make_message()
+    repository = FakeMessageRepository([message])
+    service = MessageService(repository, FakeHistoryRepository(repository))
+
+    failed = await service.dispatch_message(
+        message_id=message.id,
+        organization_id=message.organization_id,
+        provider=FakeProvider(MessageProviderConfigurationError("Credentials missing")),
+    )
+
+    assert failed.delivery_status == DeliveryStatus.FAILED
+    assert failed.error_code == "PROVIDER_CONFIGURATION_ERROR"
 
 
 @pytest.mark.asyncio

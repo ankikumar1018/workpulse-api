@@ -158,6 +158,23 @@ def test_template_context_missing_optional_state_fails_clearly():
         template.render_context(context)
 
 
+def test_body_parameters_follow_first_placeholder_order_not_schema_order():
+    definition = TemplateDefinition(
+        uuid4(),
+        "Update",
+        "{{department_name}} / {{project_name}} / {{department_name}}",
+        {"project_name": "string", "department_name": "string"},
+    )
+    context = TemplateRenderContext(
+        project_name="Apollo",
+        department_name="Install",
+        current_date=date(2026, 10, 7),
+        work_status="in_progress",
+    )
+
+    assert definition.body_parameters(context) == ("Install", "Apollo")
+
+
 @pytest.mark.asyncio
 async def test_template_service_is_tenant_scoped_and_validates_project():
     organization_id = uuid4()

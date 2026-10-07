@@ -47,6 +47,7 @@ class FakeMessageService:
         self.message = message
         self.created = []
         self.dispatch_count = 0
+        self.dispatched = []
 
     async def create_message(self, **data):
         self.created.append(data)
@@ -54,6 +55,7 @@ class FakeMessageService:
 
     async def dispatch_message(self, **_data):
         self.dispatch_count += 1
+        self.dispatched.append(_data)
         self.message.delivery_status = DeliveryStatus.SENT
         return self.message
 
@@ -148,7 +150,16 @@ def build_processor(
         priority=SimpleNamespace(value="high"),
         due_at=None,
     )
-    template = SimpleNamespace(id=template_id, channel="whatsapp", status=EntityStatus.ACTIVE)
+    template = SimpleNamespace(
+        id=template_id,
+        channel="whatsapp",
+        status=EntityStatus.ACTIVE,
+        name="Work update",
+        body="Hello {{primary_contact_name}}: {{project_name}}",
+        variable_schema_json={"primary_contact_name": "string", "project_name": "string"},
+        provider_template_name="work_update",
+        provider_template_language="en_US",
+    )
     message = SimpleNamespace(
         id=uuid4(),
         delivery_status=message_status,
@@ -187,10 +198,31 @@ async def test_processor_revalidates_renders_and_dispatches_current_state():
     assert message_service.created[0]["rendered_body"] == "Hello Ada Lovelace"
     assert template_service.context.project_name == "Apollo"
     assert message_service.dispatch_count == 1
+    assert message_service.dispatched[0]["provider_template"].name == "work_update"
+    assert message_service.dispatched[0]["provider_template"].body_parameters == (
+        "Ada Lovelace",
+        "Apollo",
+    )
     assert [item["new_status"] for item in job_service.transitions] == [
         CommunicationJobStatus.PROCESSING,
         CommunicationJobStatus.COMPLETED,
     ]
+
+
+@pytest.mark.asyncio
+async def test_processor_suppresses_whatsapp_without_approved_template_mapping():
+    processor, job, _job_service, message_service, template_service = build_processor()
+    template_service.template.provider_template_name = None
+
+    result = await processor.process(
+        job_id=job.id,
+        organization_id=job.organization_id,
+        provider=object(),
+    )
+
+    assert result.reason_code == "PROVIDER_TEMPLATE_REQUIRED"
+    assert message_service.created == []
+    assert message_service.dispatch_count == 0
 
 
 @pytest.mark.asyncio

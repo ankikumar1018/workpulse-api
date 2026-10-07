@@ -6,17 +6,41 @@ from dataclasses import dataclass
 from typing import Protocol
 
 
-class MessageProviderConfigurationError(Exception):
-    """Raised when a message provider is not configured for use."""
-
-
 class MessageProviderError(Exception):
     """Raised when a message provider rejects or cannot accept a message."""
 
-    def __init__(self, message: str, *, error_code: str = "PROVIDER_ERROR", retryable: bool = False):
+    def __init__(
+        self, message: str, *, error_code: str = "PROVIDER_ERROR", retryable: bool = False
+    ):
         super().__init__(message)
         self.error_code = error_code
         self.retryable = retryable
+
+
+class MessageProviderConfigurationError(MessageProviderError):
+    """Raised when a message provider is not configured for use."""
+
+    def __init__(self, message: str):
+        super().__init__(message, error_code="PROVIDER_CONFIGURATION_ERROR")
+
+
+@dataclass(frozen=True)
+class ProviderTemplate:
+    """Approved provider template with positional body parameters."""
+
+    name: str
+    language: str
+    body_parameters: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TemplateOutboundMessage:
+    """Provider-neutral outbound data including an approved template."""
+
+    channel: object
+    recipient_phone_number: str
+    rendered_body: str
+    provider_template: ProviderTemplate
 
 
 @dataclass(frozen=True)
@@ -30,9 +54,14 @@ class ProviderSendResult:
 class OutboundMessage(Protocol):
     """Data required by an outbound channel provider."""
 
-    channel: object
-    recipient_phone_number: str
-    rendered_body: str
+    @property
+    def channel(self) -> object: ...
+
+    @property
+    def recipient_phone_number(self) -> str: ...
+
+    @property
+    def rendered_body(self) -> str: ...
 
 
 class OutboundMessageProvider(Protocol):

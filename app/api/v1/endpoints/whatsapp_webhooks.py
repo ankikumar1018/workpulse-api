@@ -23,9 +23,10 @@ _STATUS_MAP = {
 def _is_valid_signature(body: bytes, signature: str | None) -> bool:
     if not settings.WHATSAPP_APP_SECRET or not signature:
         return False
-    expected = "sha256=" + hmac.new(
-        settings.WHATSAPP_APP_SECRET.encode(), body, hashlib.sha256
-    ).hexdigest()
+    expected = (
+        "sha256="
+        + hmac.new(settings.WHATSAPP_APP_SECRET.encode(), body, hashlib.sha256).hexdigest()
+    )
     return hmac.compare_digest(expected, signature)
 
 
@@ -44,12 +45,14 @@ async def verify_webhook(request: Request) -> Response:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Webhook verification failed")
 
 
-@router.post("", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("", status_code=status.HTTP_200_OK)
 async def receive_webhook(request: Request, controller: MessageSvc) -> Response:
     """Verify and idempotently apply recognized WhatsApp delivery events."""
     body = await request.body()
     if not _is_valid_signature(body, request.headers.get("X-Hub-Signature-256")):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature"
+        )
     payload: dict[str, Any] = await request.json()
     for entry in payload.get("entry", []):
         for change in entry.get("changes", []):
@@ -65,7 +68,7 @@ async def receive_webhook(request: Request, controller: MessageSvc) -> Response:
                         new_status=delivery_status,
                         error_code=error_code,
                     )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(status_code=status.HTTP_200_OK)
 
 
 __all__ = ["router"]

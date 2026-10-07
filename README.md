@@ -21,6 +21,7 @@ FastAPI backend for workforce communication automation.
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Setup Guide](#setup-guide)
+- [WhatsApp Setup](#whatsapp-setup)
 - [Developer Workflow](#developer-workflow)
 - [Contribution Guide](#contribution-guide)
 - [Documentation](#documentation)
@@ -173,6 +174,190 @@ docker compose down
 
 Add `--volumes` when you intentionally want to remove the local PostgreSQL
 data volume.
+
+## WhatsApp Setup
+
+The adapter and signed delivery webhooks are implemented. Scheduled WhatsApp
+jobs require an approved provider-template mapping; they never silently fall
+back to plain text outside the customer-service window.
+
+### Local Testing (No Meta Account)
+
+Run from the backend root. No credentials, tunnel, API server or database are
+required; Compose starts a disposable container with no dependent services.
+
+```powershell
+docker compose run --rm --no-deps --build api python -m app.workers.whatsapp_smoke --local
+```
+
+Local mode uses the real WhatsApp adapter with HTTPX MockTransport, dummy
+credentials and a synthetic recipient. It prints the request type/template and
+returns a simulated `wamid.local-test`; no real message or network request is
+made, even when real credentials are configured. It cannot be combined with
+`--send`. Use `--template`, `--language` and repeated `--parameter` arguments to
+exercise custom template payloads.
+
+Simulate failures (these intentionally exit with code 1, without retries):
+
+```powershell
+docker compose run --rm --no-deps api python -m app.workers.whatsapp_smoke --local --scenario transient
+docker compose run --rm --no-deps api python -m app.workers.whatsapp_smoke --local --scenario permanent
+```
+
+Transient simulates HTTP 429; permanent simulates HTTP 400. Local mode does not
+produce webhook events, write message records, or check Meta template approval.
+Run the offline tests for signed callbacks, failure handling, template mapping,
+state transitions, consent checks and duplicate protection:
+
+```powershell
+docker compose run --rm --no-deps --build test env -u SECRET_KEY python -m pytest -q --no-cov tests/test_whatsapp_provider.py tests/test_whatsapp_webhooks.py tests/test_message_job_processor.py tests/test_message_lifecycle.py tests/test_templates.py
+```
+
+These tests use isolated collaborators, not the shared database. The temporary
+secret override removal is only for a default-settings test, never the API.
+Local success does not prove Meta connectivity or automatic schedule execution;
+the live setup below is a separate acceptance step.
+
+### PostgreSQL End-to-End Dry Run
+
+This opt-in test uses real repositories, template rendering, job processing,
+message persistence and the signed HTTP webhook route. Meta HTTP calls are
+mocked and network transport is blocked. It verifies current work-item state,
+exactly one dispatch, job completion, duplicate/out-of-order callbacks, persisted
+delivery history and cross-tenant rejection. It rolls back its test transaction.
+Without `--whatsapp-test-db-url` the test is skipped; the supplied database name
+must start with `workpulse_test`. Never point it at a shared or production DB.
+
+For Docker Desktop on Windows, run from the backend root. These example
+credentials are only for the disposable database, which has no persistent volume:
+
+```powershell
+docker run --rm -d --name workpulse-whatsapp-review-db -p 127.0.0.1:55439:5432 -e POSTGRES_DB=workpulse_test_whatsapp -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=local-dry-run-only postgres:18-alpine
+docker exec workpulse-whatsapp-review-db pg_isready -U postgres
+docker compose run --rm --no-deps -e DB_HOST=host.docker.internal -e DB_PORT=55439 -e DB_NAME=workpulse_test_whatsapp -e DB_USER=postgres -e DB_PASSWORD=local-dry-run-only -e DATABASE_URL=postgresql+psycopg://postgres:local-dry-run-only@host.docker.internal:55439/workpulse_test_whatsapp api alembic upgrade head
+docker compose run --rm --no-deps --build test env -u SECRET_KEY python -m pytest -q --no-cov --whatsapp-test-db-url postgresql+psycopg://postgres:local-dry-run-only@host.docker.internal:55439/workpulse_test_whatsapp
+docker stop workpulse-whatsapp-review-db
+```
+
+Wait for `pg_isready` to report accepting connections before migrations. Use a
+different free port if 55439 is already taken. Stop the disposable container
+even if validation fails; `--rm` removes it after stopping. Run this test in
+Docker: Windows' default Proactor event loop is incompatible with Psycopg async
+connections. This dry run does not exercise the admin browser, a live cloud
+queue, automatic scheduling or real WhatsApp delivery.
+
+### 1. Verify Meta setup
+
+In Meta App Dashboard, open WhatsApp / API Setup (or Use cases / Customize /
+API Setup), select the WhatsApp Business Account and test sender, add and verify
+your own recipient number, and send the supplied `hello_world` template.
+Confirm receipt before connecting WorkPulse. Retain the sender Phone Number ID
+(not the actual phone number or Business Account ID).
+
+### 2. Configure backend secrets
+
+Create an ignored `.env` in the backend root with the five WhatsApp settings
+shown in `.env.example`. Use the temporary Meta access token for the initial
+test, the sender Phone Number ID, and the app secret from Meta app settings.
+Choose a separate random webhook verify token. Keep secrets out of git, chat,
+frontend variables, screenshots and logs. Docker Compose passes these settings
+only to the API service. Do not run `docker compose config` without `--quiet`
+when real secrets are present: the expanded configuration includes them.
+
+Run from the backend root:
+
+```powershell
+docker compose up --build -d postgres api
+docker compose exec -T api python -m app.workers.whatsapp_smoke
+```
+
+The second command checks configuration presence only, prints no secret values,
+and makes no network request. Recreate the API container after changing `.env`;
+restarting the old container does not load changed Compose environment values.
+
+### 3. Configure the webhook
+
+Expose port 8000 through an HTTPS tunnel, for example `ngrok http 8000` if ngrok
+is installed and authenticated. Prefer exposing only the webhook path; never
+make a development database or debug interface publicly reachable.
+
+Set Meta's callback URL to
+`https://<public-host>/api/v1/webhooks/whatsapp`, and use the same verify token
+as `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. Verify and save, subscribe to the `messages`
+field, and ensure the app is subscribed to the intended WhatsApp Business
+Account. A changed tunnel hostname requires updating the callback URL.
+The GET handshake returns Meta's challenge; signed POST events return HTTP 200.
+
+### 4. Send one explicit connectivity test
+
+Replace the example recipient with your verified, opted-in test number:
+
+```powershell
+docker compose exec -T api python -m app.workers.whatsapp_smoke --send --recipient "+15551234567" --confirm-opt-in
+```
+
+This sends exactly one `hello_world` / `en_US` template per invocation. For your
+own approved template, add `--template work_update --language en_US`, and repeat
+`--parameter "value"` in positional body order. There are no automatic retries.
+An accepted `wamid` is not proof of delivery: confirm phone receipt and signed
+webhook arrival. The smoke command does not create a WorkPulse message row, so
+its delivery events are acknowledged but it does not appear in admin history.
+
+### 5. Map the operational template
+
+Create a body-only, positional-parameter template in WhatsApp Manager and wait
+for approval. Keep its exact name, language and static body text aligned with
+the WorkPulse template. In `/docs`, authorize as a tenant administrator and use
+`PATCH /api/v1/templates/{template_id}` to set:
+
+```json
+{
+  "provider_template_name": "work_update",
+  "provider_template_language": "en_US"
+}
+```
+
+Example Meta body: `Hi {{1}}, project {{2}} is {{3}}.` Corresponding WorkPulse
+body: `Hi {{primary_contact_name}}, project {{project_name}} is {{work_status}}.`
+Declare these variables in the WorkPulse variable schema. Parameters use first
+placeholder appearance order, not JSON schema order; repeated names reuse the
+same parameter. Supported context values are `project_name`, `department_name`,
+`date`, `work_status`, `primary_contact_name`, `work_item_title`, `priority`, and
+`due_date`; optional values must exist when referenced. Headers, buttons, media
+and Meta named parameters are not supported by this adapter yet. Approval is
+managed in Meta, not automatically checked by WorkPulse.
+
+### Remaining activation gates
+
+- Replace the temporary token with a securely stored system-user token, assign
+  the app and WhatsApp account assets, and grant `whatsapp_business_messaging`
+  and `whatsapp_business_management` (plus management permissions required by
+  your onboarding flow). Tokens can still be revoked; plan rotation.
+- Register/verify the real sender, complete applicable business verification,
+  billing and app-publishing requirements, and obtain recipient opt-in.
+- Automatic scheduling is not connected end-to-end yet: activation calculates
+  `next_run_at_utc`, but a due-schedule producer and authenticated queue execution
+  endpoint must be wired to the existing processor before enabling reminders.
+- Validate a persisted job through provider acceptance, delivery webhook and
+  admin history in a controlled environment; cloud queue tests remain pending.
+  Keep schedules paused until these gates pass. Process-local locks and rate
+  limits do not guarantee duplicate protection across multiple replicas or
+  ambiguous provider timeouts; resolve these before production scaling.
+
+References: [Meta getting started](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started)
+and [webhook setup](https://developers.facebook.com/docs/whatsapp/cloud-api/guides/set-up-webhooks).
+
+Deep preparation validation (2026-10-07): 174 tests pass in Docker including the
+opt-in PostgreSQL job-to-delivery dry run on a disposable migrated database.
+Full Ruff, Black, isort and backend mypy gates, production image build and the
+no-network container smoke check pass. Alembic reports no new upgrade operations,
+with an existing warning about the department/worker foreign-key cycle. The
+dry-run transaction leaves zero fixture organizations, jobs or messages. No live
+provider call was made. The
+existing default-secret security test conflicts with Compose's test secret
+override; the isolated Docker regression command used was
+`docker compose run --rm --no-deps test env -u SECRET_KEY python -m pytest -q --no-cov`.
+This removes the override only inside the test process, not from the API.
 
 ## Developer Workflow
 

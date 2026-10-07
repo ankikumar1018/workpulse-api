@@ -82,6 +82,11 @@ services:
       DEBUG: "True"
       SECRET_KEY: dev-secret-key-change-in-production
       LOG_LEVEL: DEBUG
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v24.0}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
     # Do not start the API until PostgreSQL is accepting connections and
     # migrations have completed successfully.
     depends_on:

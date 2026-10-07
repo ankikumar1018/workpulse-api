@@ -11,6 +11,7 @@ from uuid import UUID
 
 from app.api.errors import NotFoundError, UnprocessableEntityError
 from app.domain.enums import (
+    Channel,
     CommunicationJobStatus,
     ConsentStatus,
     DeliveryStatus,
@@ -19,8 +20,8 @@ from app.domain.enums import (
     WorkerStatus,
     WorkStatus,
 )
-from app.domain.message_provider import OutboundMessageProvider
-from app.domain.template import TemplateRenderContext
+from app.domain.message_provider import OutboundMessageProvider, ProviderTemplate
+from app.domain.template import InvalidTemplateError, TemplateDefinition, TemplateRenderContext
 
 
 @dataclass(frozen=True)
@@ -194,22 +195,44 @@ class MessageJobProcessor:
                 job, "TEMPLATE_UNAVAILABLE", "The configured template is unavailable."
             )
 
+        provider_template = None
+        if job.channel == Channel.WHATSAPP and (
+            not template.provider_template_name or not template.provider_template_language
+        ):
+            return await self._suppress(
+                job,
+                "PROVIDER_TEMPLATE_REQUIRED",
+                "Scheduled WhatsApp messages require an approved template mapping.",
+            )
         try:
+            context = TemplateRenderContext(
+                project_name=project.name,
+                department_name=department.name,
+                current_date=job.execution_at.astimezone(UTC).date(),
+                work_status=work_item.status.value if work_item else "none",
+                primary_contact_name=worker.full_name,
+                work_item_title=work_item.title if work_item else None,
+                priority=work_item.priority.value if work_item else None,
+                due_date=self._due_date(work_item),
+            )
             rendered_body = await self.template_service.render_template(
                 template_id=job.template_id,
                 organization_id=organization_id,
-                context=TemplateRenderContext(
-                    project_name=project.name,
-                    department_name=department.name,
-                    current_date=job.execution_at.astimezone(UTC).date(),
-                    work_status=work_item.status.value if work_item else "none",
-                    primary_contact_name=worker.full_name,
-                    work_item_title=work_item.title if work_item else None,
-                    priority=work_item.priority.value if work_item else None,
-                    due_date=self._due_date(work_item),
-                ),
+                context=context,
             )
-        except NotFoundError, UnprocessableEntityError:
+            if template.provider_template_name and template.provider_template_language:
+                definition = TemplateDefinition(
+                    organization_id=organization_id,
+                    name=template.name,
+                    body=template.body,
+                    variable_schema=template.variable_schema_json or {},
+                )
+                provider_template = ProviderTemplate(
+                    name=template.provider_template_name,
+                    language=template.provider_template_language,
+                    body_parameters=definition.body_parameters(context),
+                )
+        except NotFoundError, UnprocessableEntityError, InvalidTemplateError:
             return await self._suppress(
                 job, "TEMPLATE_UNAVAILABLE", "The configured template could not be rendered."
             )
@@ -249,6 +272,7 @@ class MessageJobProcessor:
             message_id=message.id,
             organization_id=organization_id,
             provider=provider,
+            provider_template=provider_template,
         )
         if dispatched.delivery_status in {DeliveryStatus.SENT, DeliveryStatus.DELIVERED}:
             await self.job_service.transition_job(

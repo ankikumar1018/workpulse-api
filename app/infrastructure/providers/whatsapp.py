@@ -5,10 +5,10 @@ from __future__ import annotations
 import httpx
 
 from app.domain.enums import Channel
-from app.domain.message import Message
 from app.domain.message_provider import (
     MessageProviderConfigurationError,
     MessageProviderError,
+    OutboundMessage,
     ProviderSendResult,
 )
 
@@ -32,7 +32,7 @@ class WhatsAppCloudProvider:
         self._api_version = api_version
         self._client = client
 
-    async def send(self, message: Message) -> ProviderSendResult:
+    async def send(self, message: OutboundMessage) -> ProviderSendResult:
         """Send a rendered text message and return Meta's message identifier."""
         if message.channel != Channel.WHATSAPP:
             raise MessageProviderError("WhatsApp provider can only send WhatsApp messages.")
@@ -41,6 +41,14 @@ class WhatsAppCloudProvider:
                 "WhatsApp access token and phone number ID must be configured."
             )
 
+        provider_template = getattr(message, "provider_template", None)
+        if provider_template is not None:
+            return await self.send_template(
+                recipient_phone_number=message.recipient_phone_number,
+                template_name=provider_template.name,
+                language=provider_template.language,
+                body_parameters=list(provider_template.body_parameters),
+            )
         response = await self._post_messages(message)
         if response.is_error:
             raise MessageProviderError(
@@ -76,12 +84,18 @@ class WhatsAppCloudProvider:
                 "template": {
                     "name": template_name,
                     "language": {"code": language},
-                    "components": [
-                        {
-                            "type": "body",
-                            "parameters": [{"type": "text", "text": value} for value in body_parameters],
-                        }
-                    ],
+                    "components": (
+                        [
+                            {
+                                "type": "body",
+                                "parameters": [
+                                    {"type": "text", "text": value} for value in body_parameters
+                                ],
+                            }
+                        ]
+                        if body_parameters
+                        else []
+                    ),
                 },
             }
         )
@@ -93,7 +107,7 @@ class WhatsAppCloudProvider:
             )
         return ProviderSendResult(self.provider_name, self._extract_message_id(response))
 
-    async def _post_messages(self, message: Message) -> httpx.Response:
+    async def _post_messages(self, message: OutboundMessage) -> httpx.Response:
         return await self._post_payload(
             {
                 "messaging_product": "whatsapp",

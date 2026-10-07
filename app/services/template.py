@@ -31,7 +31,9 @@ class TemplateService:
         return project
 
     @staticmethod
-    def _validate_definition(*, organization_id: UUID, name: str, body: str, variable_schema: dict[str, str]) -> None:
+    def _validate_definition(
+        *, organization_id: UUID, name: str, body: str, variable_schema: dict[str, str]
+    ) -> None:
         try:
             TemplateDefinition(organization_id, name, body, variable_schema)
         except InvalidTemplateError as exc:
@@ -154,7 +156,10 @@ class TemplateService:
             raise UnprocessableEntityError("Archived projects cannot contain active templates")
         name = update_data.get("name", template.name)
         channel = update_data.get("channel", template.channel)
-        if (name, channel) != (template.name, template.channel) and await self.repository.find_by_name(
+        if (name, channel) != (
+            template.name,
+            template.channel,
+        ) and await self.repository.find_by_name(
             project_id=template.project_id,
             name=name,
             channel=channel,
@@ -174,7 +179,9 @@ class TemplateService:
             organization_id=organization_id,
             name=name,
             body=update_data.get("body", template.body),
-            variable_schema=update_data.get("variable_schema_json", template.variable_schema_json or {}),
+            variable_schema=update_data.get(
+                "variable_schema_json", template.variable_schema_json or {}
+            ),
         )
         updated = await self.repository.update(template_id, update_data)
         if updated is None:

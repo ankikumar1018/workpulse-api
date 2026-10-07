@@ -57,7 +57,7 @@ def test_webhook_accepts_a_valid_signature(monkeypatch) -> None:
         headers={"X-Hub-Signature-256": signature},
     )
 
-    assert response.status_code == 204
+    assert response.status_code == 200
 
 
 def test_webhook_applies_recognized_statuses_and_error_codes(monkeypatch) -> None:
@@ -88,7 +88,7 @@ def test_webhook_applies_recognized_statuses_and_error_codes(monkeypatch) -> Non
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 204
+    assert response.status_code == 200
     assert service.calls == [
         {
             "provider_name": "whatsapp_cloud",
@@ -134,7 +134,7 @@ def test_webhook_ignores_unknown_or_malformed_status_events(monkeypatch) -> None
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 204
+    assert response.status_code == 200
     assert service.calls == [
         {
             "provider_name": "whatsapp_cloud",

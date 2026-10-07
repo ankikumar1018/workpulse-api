@@ -85,5 +85,12 @@ class TemplateDefinition:
         """Render against the explicit current project and work-item context."""
         return self.render(context.values())
 
+    def body_parameters(self, context: TemplateRenderContext) -> tuple[str, ...]:
+        """Resolve unique positional parameters in first-placeholder order."""
+        values = context.values()
+        self.render(values)
+        names = dict.fromkeys(_PLACEHOLDER_PATTERN.findall(self.body))
+        return tuple(str(values[name]) for name in names)
+
 
 __all__ = ["InvalidTemplateError", "TemplateDefinition", "TemplateRenderContext"]

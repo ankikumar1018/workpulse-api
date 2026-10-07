@@ -14,6 +14,8 @@ from app.domain.message_provider import (
     MessageProviderError,
     OutboundMessage,
     OutboundMessageProvider,
+    ProviderTemplate,
+    TemplateOutboundMessage,
 )
 from app.infrastructure.db.models import Message
 from app.repositories.message import MessageHistoryRepository, MessageRepository
@@ -154,6 +156,7 @@ class MessageService:
         message_id: UUID,
         organization_id: UUID,
         provider: OutboundMessageProvider,
+        provider_template: ProviderTemplate | None = None,
     ) -> Message:
         """Submit one queued message and retain the provider outcome in its lifecycle."""
         message = await self.transition_message(
@@ -162,7 +165,15 @@ class MessageService:
             new_status=DeliveryStatus.PROCESSING,
         )
         try:
-            result = await provider.send(cast(OutboundMessage, message))
+            outbound: OutboundMessage = cast(OutboundMessage, message)
+            if provider_template is not None:
+                outbound = TemplateOutboundMessage(
+                    channel=message.channel,
+                    recipient_phone_number=message.recipient_phone_number,
+                    rendered_body=message.rendered_body,
+                    provider_template=provider_template,
+                )
+            result = await provider.send(outbound)
         except MessageProviderError as error:
             return await self.transition_message(
                 message_id=message.id,
